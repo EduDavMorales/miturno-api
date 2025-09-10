@@ -1,0 +1,20 @@
+# FastAPI framework
+fastapi==0.104.1
+uvicorn==0.24.0
+
+# Database
+sqlalchemy==2.0.25
+pymysql==1.1.0
+
+# Authentication & Security (con cryptography)
+python-jose[cryptography]==3.3.0
+cryptography==41.0.7
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Validation
+pydantic==2.9.2
+pydantic-settings==2.6.0
+
+# Environment variables
+python-dotenv==1.0.0
