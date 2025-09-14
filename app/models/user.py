@@ -2,12 +2,7 @@ from sqlalchemy import Column, Integer, String, Enum, DateTime, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
-import enum
-
-
-class TipoUsuario(str, enum.Enum):
-    CLIENTE = "cliente"
-    EMPRESA = "empresa"
+from app.enums import TipoUsuario
 
 
 class Usuario(Base):

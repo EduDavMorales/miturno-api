@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.api.v1 import auth
+from app.api.v1 import auth, empresas, categorias, turnos
 from app.database import engine
 from app.models import user  # Importar para crear tablas
 
@@ -28,6 +28,9 @@ app.add_middleware(
 
 # Incluir routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(empresas.router, prefix="/api/v1", tags=["Empresas"])
+app.include_router(categorias.router, prefix="/api/v1", tags=["Categorías"])
+app.include_router(turnos.router, prefix="/api/v1", tags=["Turnos"])
 
 # Health check endpoint
 @app.get("/")

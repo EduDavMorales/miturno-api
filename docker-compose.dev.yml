@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+
+  backend:
+    volumes:
+      - .:/app
+    environment:
+      - DEBUG=true
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  database:
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./sistema_turnos.sql:/docker-entrypoint-initdb.d/init.sql
