@@ -1,8 +1,9 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.user import Usuario
+from app.models.user import Usuario, TipoUsuario
+from app.models.rol import UsuarioRol
 from app.schemas.auth import (
     LoginRequest, LoginResponse, RegistroRequest, RegistroResponse,
     GoogleAuthRequest, UsuarioResponse
@@ -33,7 +34,7 @@ async def login(
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
         data={
-            "sub": user.usuario_id,
+            "sub": str(user.usuario_id),
             "email": user.email,
             "tipo_usuario": user.tipo_usuario.value
         },
@@ -54,33 +55,72 @@ async def register(
     """
     Registro de nuevo usuario (cliente o empresa)
     """
-    # Verificar si email ya existe
-    existing_user = db.query(Usuario).filter(Usuario.email == registro_data.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
+    try:
+        # Verificar si email ya existe
+        existing_user = db.query(Usuario).filter(Usuario.email == registro_data.email).first()
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        
+        # Crear nuevo usuario
+        hashed_password = get_password_hash(registro_data.password)
+        
+        new_user = Usuario(
+            email=registro_data.email,
+            password=hashed_password,
+            nombre=registro_data.nombre,
+            telefono=registro_data.telefono,
+            tipo_usuario=registro_data.tipo_usuario
         )
-    
-    # Crear nuevo usuario
-    hashed_password = get_password_hash(registro_data.password)
-    
-    new_user = Usuario(
-        email=registro_data.email,
-        password=hashed_password,
-        nombre=registro_data.nombre,
-        telefono=registro_data.telefono,
-        tipo_usuario=registro_data.tipo_usuario
-    )
-    
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    return RegistroResponse(
-        message="User registered successfully",
-        usuario_id=new_user.usuario_id
-    )
+        
+        # Agregar usuario y obtener ID
+        db.add(new_user)
+        db.flush()  # Obtener ID sin hacer commit completo
+        
+        # Determinar rol según tipo_usuario
+        rol_id = None
+        if registro_data.tipo_usuario == TipoUsuario.CLIENTE:
+            rol_id = 1  # Rol Cliente
+        elif registro_data.tipo_usuario == TipoUsuario.EMPRESA:
+            rol_id = 4  # Rol Dueño Empresa
+        else:
+            # Por defecto, asignar Cliente si hay algún valor inesperado
+            rol_id = 1
+        
+        # Crear relación usuario-rol
+        usuario_rol = UsuarioRol(
+            usuario_id=new_user.usuario_id,
+            rol_id=rol_id,
+            empresa_id=None,  # Para clientes es NULL, para empresas se asignará después
+            asignado_por=None,  # Auto-asignado durante registro
+            fecha_asignado=datetime.utcnow(),
+            fecha_vencimiento=None,  # Sin vencimiento para roles principales
+            activo=True,
+            motivo_inactivacion=None
+        )
+        
+        db.add(usuario_rol)
+        db.commit()  # Commit de toda la transacción
+        db.refresh(new_user)
+        
+        return RegistroResponse(
+            message="User registered successfully",
+            usuario_id=new_user.usuario_id
+        )
+        
+    except HTTPException:
+        # Re-lanzar HTTPExceptions (como email ya registrado)
+        db.rollback()
+        raise
+    except Exception as e:
+        # Rollback en caso de cualquier error inesperado
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error during registration: {str(e)}"
+        )
 
 @router.post("/google", response_model=LoginResponse)
 async def google_auth(
