@@ -1,13 +1,27 @@
+# app/core/security.py
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.config import settings
 from app.schemas.auth import TokenData
+from app.database import get_db
+from app.models.user import Usuario
+from app.core.logger import get_logger
+
+# Logger específico para autenticación
+auth_logger = get_logger("miturno.auth")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# OAuth2 scheme
+oauth2_scheme = HTTPBearer()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verificar password con hash"""
@@ -19,6 +33,8 @@ def get_password_hash(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Crear JWT token"""
+    auth_logger.debug(f"Creando token para: {data.get('email', 'unknown')}")
+    
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -26,11 +42,19 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
-    return encoded_jwt
+    
+    try:
+        encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+        auth_logger.info(f"Token creado exitosamente para usuario: {data.get('email')}")
+        return encoded_jwt
+    except Exception as e:
+        auth_logger.error(f"Error creando token: {str(e)}")
+        raise
 
 def verify_token(token: str) -> TokenData:
     """Verificar y decodificar JWT token"""
+    auth_logger.debug("Iniciando verificación de token")
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -38,12 +62,19 @@ def verify_token(token: str) -> TokenData:
     )
     
     try:
+        auth_logger.debug(f"Decodificando token con SECRET_KEY: {settings.secret_key[:10]}... y algoritmo: {settings.algorithm}")
+        
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
-        usuario_id: int = payload.get("sub")
+        auth_logger.debug("Token decodificado exitosamente")
+        
+        usuario_id: int = int(payload.get("sub"))
         email: str = payload.get("email")
         tipo_usuario: str = payload.get("tipo_usuario")
         
+        auth_logger.debug(f"Datos extraídos - usuario_id: {usuario_id}, email: {email}")
+        
         if usuario_id is None:
+            auth_logger.warning("Token válido pero sin usuario_id en payload")
             raise credentials_exception
             
         token_data = TokenData(
@@ -51,7 +82,57 @@ def verify_token(token: str) -> TokenData:
             email=email,
             tipo_usuario=tipo_usuario
         )
+        
+        auth_logger.info(f"Token verificado exitosamente para usuario: {email}")
         return token_data
         
-    except JWTError:
+    except JWTError as e:
+        auth_logger.error(f"Error JWT al verificar token: {str(e)}")
+        raise credentials_exception
+    except Exception as e:
+        auth_logger.error(f"Error inesperado verificando token: {str(e)}, tipo: {type(e)}")
+        raise credentials_exception
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> Usuario:
+    """
+    Obtener usuario actual desde JWT token
+    Para usar como dependencia en endpoints protegidos
+    """
+    auth_logger.debug("Iniciando get_current_user")
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        # Verificar token
+        token_data = verify_token(credentials.credentials)
+        auth_logger.debug(f"Token verificado, buscando usuario ID: {token_data.usuario_id}")
+        
+        # Buscar usuario en BD
+        user = db.query(Usuario).filter(Usuario.usuario_id == token_data.usuario_id).first()
+        
+        if user is None:
+            auth_logger.warning(f"Usuario {token_data.usuario_id} no encontrado en BD")
+            raise credentials_exception
+            
+        auth_logger.info(f"Usuario autenticado exitosamente: {user.email}")
+        return user
+        
+    except HTTPException as e:
+        auth_logger.error(f"HTTPException en get_current_user: {e.detail}")
+        raise e
+    except SQLAlchemyError as e:
+        auth_logger.error(f"Error de BD en get_current_user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database error during authentication"
+        )
+    except Exception as e:
+        auth_logger.error(f"Error inesperado en get_current_user: {str(e)}")
         raise credentials_exception

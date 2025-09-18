@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     # App
     app_name: str = "Gestión de Turnos API"
     app_version: str = "1.0.0"
-    debug: bool = False
+    debug: bool = True
     
     # Database
     database_url: str = "mysql+pymysql://root:password@localhost:3306/sistema_turnos"

@@ -29,3 +29,5 @@ class Empresa(Base):
     categoria = relationship("Categoria", back_populates="empresas")
     turnos = relationship("Turno", back_populates="empresa")
     servicios = relationship("Servicio", back_populates="empresa")
+    horarios = relationship("HorarioEmpresa", back_populates="empresa")
+    bloqueos = relationship("BloqueoHorario", back_populates="empresa")
