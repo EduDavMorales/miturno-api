@@ -4,11 +4,11 @@ Sistema completo de gestión de turnos desarrollado con FastAPI, MySQL y Docker.
 
 ## Estado del Proyecto
 
-- **Progreso:** 100% FUNCIONAL Y VALIDADO
+- **Progreso:** 95% FUNCIONAL Y VALIDADO
 - **Tecnologías:** Python 3.11, FastAPI, MySQL 8.0, Docker, Pydantic v2, SQLAlchemy
 - **Arquitectura:** Clean Architecture + Service Layer + Sistema de Roles Granulares
 - **Testing:** Flujo end-to-end completo validado (autenticación → reserva → gestión)
-- **Status:** SISTEMA EN PRODUCCIÓN
+- **Status:** SISTEMA LISTO PARA PRODUCCIÓN
 
 ## Funcionalidades Validadas
 
@@ -40,8 +40,16 @@ GET /api/v1/empresas/1/disponibilidad?fecha=2025-09-19
 - **Cancelación:** Estado pendiente→cancelado con audit trail completo
 - **Soft delete:** Datos preservados, sin eliminación física
 
+### Sistema de Auditoría - IMPLEMENTADO
+- **AuditoriaService:** Servicio completo para tracking de cambios
+- **Modelos de auditoría:** app/models/auditoria.py operativo
+- **Schemas de auditoría:** app/schemas/auditoria.py definidos
+- **Tabla auditoria_sistema:** Trazabilidad completa funcionando
+- **Soft delete:** Preservación de datos históricos
+
 ### Arquitectura Service Layer - VALIDADA
 - **TurnoService:** 8 métodos funcionando perfectamente
+- **AuditoriaService:** Sistema de tracking implementado
 - **Cálculo automático:** hora_fin calculada dinámicamente (10:00→10:30)
 - **Validaciones robustas:** Fechas, conflictos, permisos integrados
 - **Audit trail completo:** Timestamps de creación, modificación, cancelación
@@ -103,7 +111,6 @@ curl http://localhost:8000/api/v1/empresas/1/disponibilidad?fecha=2025-09-19
 ```http
 POST /api/auth/login             # ✅ Login JWT validado
 POST /api/auth/register          # Registro usuarios  
-POST /api/auth/google            # OAuth Google
 ```
 
 ### Sistema de Turnos (100% Operativo)
@@ -148,6 +155,18 @@ TurnoService - 16KB de lógica validada:
 ├── _calcular_hora_fin()         # ✅ 10:00→10:30 automático
 ├── _validar_horario_disponible() # Validaciones operativas
 └── _convertir_a_turno_response() # Schemas integrados
+
+AuditoriaService - Sistema de tracking:
+├── registrar_cambio()           # ✅ Tracking implementado
+├── obtener_historial()          # ✅ Consulta de auditoría
+└── _preparar_metadatos()        # ✅ Contexto completo
+```
+
+### Middlewares y Excepciones Personalizadas
+```python
+app/middleware/                   # Middlewares personalizados
+app/core/exceptions.py           # Manejo de errores robusto
+app/routers/                     # Organización modular de rutas
 ```
 
 ### Datos de Producción Configurados
@@ -172,9 +191,10 @@ Usuario de Producción:
 
 ### Estructura Completa (14 tablas)
 ```
-usuario ─┬─ empresa ─── servicio
-         ├─ turno ──── horario_empresa  
-         └─ usuario_rol ─── rol ─── rol_permiso ─── permiso
+usuario ┬─ empresa ─── servicio
+        ├─ turno ──── horario_empresa  
+        ├─ auditoria_sistema (tracking completo)
+        └─ usuario_rol ─── rol ─── rol_permiso ─── permiso
 ```
 
 ### Datos Validados en BD
@@ -183,6 +203,7 @@ usuario ─┬─ empresa ─── servicio
 - **3 servicios** con precios y duraciones
 - **6 horarios** configurados (lunes-sábado)
 - **1 turno** con ciclo completo validado (ID 13)
+- **Sistema de auditoría** operativo con trazabilidad
 
 ### Testing en Base de Datos
 ```sql
@@ -190,6 +211,10 @@ usuario ─┬─ empresa ─── servicio
 SELECT * FROM turno WHERE turno_id = 13;
 -- Estado: cancelado, Audit trail completo
 -- fecha_creacion, fecha_actualizacion, fecha_cancelacion registradas
+
+-- Auditoría funcionando
+SELECT * FROM auditoria_sistema WHERE tabla_afectada = 'turno';
+-- Tracking de cambios completo
 ```
 
 ## Desarrollo y Comandos
@@ -235,6 +260,8 @@ curl -X POST "http://localhost:8000/api/v1/turnos/reservar" \
 - **Cálculos dinámicos**: hora_fin automática operativa
 - **Contexto de usuario**: Solo acceso a recursos propios validado
 - **Paginación**: Sistema funcional con metadatos correctos
+- **Manejo de excepciones**: Sistema robusto de errores
+- **Middleware personalizado**: Capas adicionales de procesamiento
 
 ## Métricas del Sistema Validadas
 
@@ -252,23 +279,26 @@ curl -X POST "http://localhost:8000/api/v1/turnos/reservar" \
 - **31 permisos** granulares implementados
 - **5 endpoints** nuevos + 3 legacy funcionales
 - **0 errores** en flujo end-to-end completo
+- **Sistema de auditoría** completamente funcional
 
 ## Estado de Producción
 
-### Sistema 100% Operativo
+### Sistema 95% Operativo
 - Base de datos: Datos reales configurados
 - API Backend: Todos los endpoints críticos funcionando  
 - Autenticación: JWT tokens válidos y seguros
 - Lógica de negocio: Service layer completamente validado
 - Testing: Flujo end-to-end sin errores
 - Documentación: Actualizada y precisa
+- Auditoría: Sistema de tracking operativo
 
-### Próximas Mejoras
+### Próximas Mejoras (Sprint 2)
+- **OAuth Google integration** (infraestructura de auditoría lista)
 - **Dashboard empresarial** con métricas
 - **Notificaciones automáticas** por email/WhatsApp
 - **Búsqueda geográfica** por proximidad  
 - **App móvil** con React Native
-- **Integración WhatsApp** Business API
+- **Chat en tiempo real** con WebSockets
 
 ## Datos de Acceso en Producción
 
@@ -308,12 +338,12 @@ docker-compose down && docker-compose up -d
 
 - **Documentación Interactiva:** http://localhost:8000/docs (100% validada)
 - **Testing Guide:** Usar test.roles.v2@miturno.com / 12345678
-- **Status del Sistema:** PRODUCCIÓN - 100% FUNCIONAL
+- **Status del Sistema:** PRODUCCIÓN - 95% FUNCIONAL
 - **GitHub Issues:** Para nuevas features
 
 ---
 
 **Última actualización:** Septiembre 2025  
 **Versión:** v2.0.0-PRODUCTION  
-**Status:** SISTEMA COMPLETAMENTE FUNCIONAL Y VALIDADO  
+**Status:** SISTEMA LISTO PARA DEPLOY EN PRODUCCIÓN  
 **Testing:** Flujo end-to-end completado exitosamente

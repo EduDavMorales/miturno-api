@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.core.security import get_current_user  # ✅ Corregido: core, no auth
+from app.core.security import get_current_user  
 from app.auth.permissions import PermissionService
 from app.models.user import Usuario
 
@@ -10,7 +10,7 @@ router = APIRouter(prefix="/test", tags=["Test Roles"])
 
 @router.get("/mis-permisos")
 async def test_mis_permisos(
-    current_user: Usuario = Depends(get_current_user),  # ✅ Agregado tipo
+    current_user: Usuario = Depends(get_current_user),  
     db: Session = Depends(get_db)
 ):
     """Endpoint de prueba para verificar permisos del usuario"""
@@ -21,7 +21,7 @@ async def test_mis_permisos(
         return {
             "status": "success",
             "usuario_id": current_user.usuario_id,
-            "email": current_user.email,  # ✅ Info adicional útil
+            "email": current_user.email,  
             "total_permisos": len(permisos),
             "permisos": permisos
         }
@@ -35,7 +35,7 @@ async def test_mis_permisos(
 async def test_verificar_permiso(
     permiso_codigo: str,
     empresa_id: int = None,
-    current_user: Usuario = Depends(get_current_user),  # ✅ Agregado tipo
+    current_user: Usuario = Depends(get_current_user),  
     db: Session = Depends(get_db)
 ):
     """Probar verificación de un permiso específico"""
@@ -50,7 +50,7 @@ async def test_verificar_permiso(
         return {
             "status": "success",
             "usuario_id": current_user.usuario_id,
-            "email": current_user.email,  # ✅ Info adicional útil
+            "email": current_user.email,  
             "permiso_codigo": permiso_codigo,
             "empresa_id": empresa_id,
             "tiene_permiso": tiene_permiso

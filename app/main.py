@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
 from app.api.v1 import auth, empresas, categorias, turnos, test_roles
+from app.routers import auditoria
 from app.database import engine
 from app.models import user  
 
@@ -57,6 +58,7 @@ app.include_router(empresas.router, prefix="/api/v1", tags=["Empresas"])
 app.include_router(categorias.router, prefix="/api/v1", tags=["Categorías"])
 app.include_router(turnos.router, prefix="/api/v1", tags=["Turnos"])
 app.include_router(test_roles.router, prefix="/api/v1", tags=["Test Roles"])
+app.include_router(auditoria.router)
 
 app_logger.info("Todos los routers registrados correctamente")
 

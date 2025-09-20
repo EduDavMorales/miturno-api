@@ -6,14 +6,14 @@ from typing import Optional
 class Settings(BaseSettings):
     # App
     app_name: str = "Gestión de Turnos API"
-    app_version: str = "1.0.0"
-    debug: bool = True
+    app_version: str = "2.0.0"
+    debug: bool = False
     
     # Database
-    database_url: str = "mysql+pymysql://root:password@localhost:3306/sistema_turnos"
+    database_url: str 
     
     # Security
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str 
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 30
     
@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = False
+
+    def get_database_url(self) -> str:
+        """
+        Railway compatibility: convierte mysql:// a mysql+pymysql://
+        """
+        if self.database_url.startswith("mysql://"):
+            return self.database_url.replace("mysql://", "mysql+pymysql://", 1)
+        return self.database_url
 
 
 settings = Settings()

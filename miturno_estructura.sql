@@ -16,7 +16,7 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `autorizacion_soporte`
+-- Estructura de la tabla: `autorizacion_soporte`
 --
 
 DROP TABLE IF EXISTS `autorizacion_soporte`;
@@ -45,7 +45,7 @@ CREATE TABLE `autorizacion_soporte` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `bloqueo_horario`
+-- Estructura de la tabla: `bloqueo_horario`
 --
 
 DROP TABLE IF EXISTS `bloqueo_horario`;
@@ -70,7 +70,7 @@ CREATE TABLE `bloqueo_horario` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `categoria`
+-- Estructura de la tabla: `categoria`
 --
 
 DROP TABLE IF EXISTS `categoria`;
@@ -89,7 +89,7 @@ CREATE TABLE `categoria` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `empresa`
+-- Estructura de la tabla: `empresa`
 --
 
 DROP TABLE IF EXISTS `empresa`;
@@ -125,7 +125,7 @@ CREATE TABLE `empresa` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `horario_empresa`
+-- Estructura de la tabla: `horario_empresa`
 --
 
 DROP TABLE IF EXISTS `horario_empresa`;
@@ -147,7 +147,7 @@ CREATE TABLE `horario_empresa` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `mensaje`
+-- Estructura de la tabla: `mensaje`
 --
 
 DROP TABLE IF EXISTS `mensaje`;
@@ -170,7 +170,7 @@ CREATE TABLE `mensaje` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `notificacion`
+-- Estructura de la tabla: `notificacion`
 --
 
 DROP TABLE IF EXISTS `notificacion`;
@@ -199,7 +199,7 @@ CREATE TABLE `notificacion` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `permiso`
+-- Estructura de la tabla: `permiso`
 --
 
 DROP TABLE IF EXISTS `permiso`;
@@ -227,7 +227,7 @@ CREATE TABLE `permiso` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `rol`
+-- Estructura de la tabla: `rol`
 --
 
 DROP TABLE IF EXISTS `rol`;
@@ -253,7 +253,7 @@ CREATE TABLE `rol` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `rol_permiso`
+-- Estructura de la tabla: `rol_permiso`
 --
 
 DROP TABLE IF EXISTS `rol_permiso`;
@@ -275,7 +275,7 @@ CREATE TABLE `rol_permiso` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `servicio`
+-- Estructura de la tabla: `servicio`
 --
 
 DROP TABLE IF EXISTS `servicio`;
@@ -299,7 +299,7 @@ CREATE TABLE `servicio` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `turno`
+-- Estructura de la tabla: `turno`
 --
 
 DROP TABLE IF EXISTS `turno`;
@@ -334,7 +334,7 @@ CREATE TABLE `turno` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Table structure for table `usuario`
+-- Estructura de la tabla: `usuario`
 --
 
 DROP TABLE IF EXISTS `usuario`;
@@ -358,7 +358,8 @@ CREATE TABLE `usuario` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Temporary view structure for view `usuario_permisos_activos`
+-- Estructura temporal para la vista `usuario_permisos_activos`
+-- Propósito: Facilitar consultas de permisos activos por usuario
 --
 
 DROP TABLE IF EXISTS `usuario_permisos_activos`;
@@ -380,7 +381,7 @@ SET @saved_cs_client     = @@character_set_client;
 SET character_set_client = @saved_cs_client;
 
 --
--- Table structure for table `usuario_rol`
+-- Estructura de la tabla: `usuario_rol`
 --
 
 DROP TABLE IF EXISTS `usuario_rol`;
@@ -412,7 +413,7 @@ CREATE TABLE `usuario_rol` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping routines for database 'sistema_turnos'
+-- Exportando rutinas (procedimientos y funciones) para la base de datos 'sistema_turnos'
 --
 /*!50003 DROP FUNCTION IF EXISTS `usuario_tiene_permiso` */;
 /*!50003 SET @saved_cs_client      = @@character_set_client */ ;
@@ -449,7 +450,8 @@ DELIMITER ;
 /*!50003 SET collation_connection  = @saved_col_connection */ ;
 
 --
--- Final view structure for view `usuario_permisos_activos`
+-- Estructura final de la vista `usuario_permisos_activos`
+-- Contiene: Todos los permisos activos por usuario y empresa
 --
 
 /*!50001 DROP VIEW IF EXISTS `usuario_permisos_activos`*/;

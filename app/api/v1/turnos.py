@@ -207,7 +207,7 @@ def cancelar_turno_api(
 ):
     """
     ENDPOINT LEGACY: Cancelar turno (mantener compatibilidad)
-    ⚠️ DEPRECATED: Usar PUT /turnos/{turno_id}/cancelar en su lugar
+      DEPRECATED: Usar PUT /turnos/{turno_id}/cancelar en su lugar
     """
     turno = cancelar_turno(
         db,

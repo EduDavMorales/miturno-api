@@ -115,7 +115,7 @@ def get_empresa(
 @router.post(
     "/empresas", 
     response_model=EmpresaResponse,
-    status_code=status.HTTP_201_CREATED,  # ✅ 201 Created
+    status_code=status.HTTP_201_CREATED,  
     summary="Crear nueva empresa",
     description="Crea una nueva empresa para un usuario tipo 'empresa'"
 )
@@ -138,7 +138,7 @@ def create_empresa(
     - El usuario no puede tener más de una empresa
     """
     try:
-        # 🔥 PASO 1: Verificar que el usuario existe
+        #  PASO 1: Verificar que el usuario existe
         usuario = db.query(Usuario).filter(Usuario.usuario_id == empresa.usuario_id).first()
         if not usuario:
             logger.warning(f"Usuario {empresa.usuario_id} no encontrado")
@@ -147,7 +147,7 @@ def create_empresa(
                 detail=f"Usuario con ID {empresa.usuario_id} no encontrado"
             )
         
-        # 🔥 PASO 2: Verificar que el usuario es tipo 'empresa'
+        #  PASO 2: Verificar que el usuario es tipo 'empresa'
         if usuario.tipo_usuario != TipoUsuario.EMPRESA:
             logger.warning(f"Usuario {empresa.usuario_id} tipo '{usuario.tipo_usuario}' intentó crear empresa")
             raise HTTPException(
@@ -155,7 +155,7 @@ def create_empresa(
                 detail=f"Solo usuarios tipo 'empresa' pueden crear empresas. Tu tipo actual: '{usuario.tipo_usuario}'"
             )
         
-        # 🔥 PASO 3: Verificar que la categoría existe
+        #  PASO 3: Verificar que la categoría existe
         categoria = db.query(Categoria).filter(Categoria.categoria_id == empresa.categoria_id).first()
         if not categoria:
             logger.warning(f"Categoría {empresa.categoria_id} no encontrada")
@@ -164,7 +164,7 @@ def create_empresa(
                 detail=f"Categoría con ID {empresa.categoria_id} no encontrada"
             )
         
-        # 🔥 PASO 4: Verificar que el usuario no tenga ya una empresa
+        #  PASO 4: Verificar que el usuario no tenga ya una empresa
         empresa_existente = db.query(Empresa).filter(Empresa.usuario_id == empresa.usuario_id).first()
         if empresa_existente:
             logger.warning(f"Usuario {empresa.usuario_id} ya tiene empresa {empresa_existente.empresa_id}")
@@ -173,7 +173,7 @@ def create_empresa(
                 detail=f"El usuario ya tiene una empresa registrada: '{empresa_existente.razon_social}'"
             )
         
-        # 🔥 PASO 5: Crear nueva empresa
+        #  PASO 5: Crear nueva empresa
         db_empresa = Empresa(**empresa.dict())
         db.add(db_empresa)
         db.commit()

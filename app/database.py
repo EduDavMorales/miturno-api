@@ -5,7 +5,7 @@ from app.config import settings
 
 # Crear el engine de la base de datos
 engine = create_engine(
-    settings.database_url,
+    settings.get_database_url(),  # Usar método con Railway compatibility
     pool_pre_ping=True,  # Verificar conexiones antes de usar
     pool_recycle=300,    # Reciclar conexiones cada 5 min
     echo=settings.debug  # Mostrar SQL queries en desarrollo

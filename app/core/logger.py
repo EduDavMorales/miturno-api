@@ -6,7 +6,7 @@ from logging.handlers import RotatingFileHandler
 from app.config import settings
 
 def setup_logging():
-    """Configurar logging profesional para la aplicación"""
+    """Configurar logging para la aplicación"""
     
     # Crear directorio de logs
     log_dir = Path("logs")
