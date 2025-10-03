@@ -6,7 +6,7 @@ from app.core.security import get_current_user
 from app.auth.permissions import PermissionService
 from app.models.user import Usuario
 
-router = APIRouter(prefix="/test", tags=["Test Roles"])
+router = APIRouter()
 
 @router.get("/mis-permisos")
 async def test_mis_permisos(

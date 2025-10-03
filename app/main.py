@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
 from app.api.v1 import auth, empresas, categorias, turnos, test_roles
-from app.routers import auditoria
+from app.routers import auditoria, geo_test
 from app.database import engine
 from app.models import user  
 
@@ -24,7 +24,6 @@ except Exception as e:
 # Crear instancia de FastAPI
 app = FastAPI(
     title=settings.app_name,
-    version=settings.app_version,
     description="API para la gestión de turnos entre empresas y clientes",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -53,12 +52,13 @@ async def shutdown_event():
     app_logger.info("Cerrando aplicación MiTurno API")
 
 # Incluir routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
-app.include_router(empresas.router, prefix="/api/v1", tags=["Empresas"])
-app.include_router(categorias.router, prefix="/api/v1", tags=["Categorías"])
-app.include_router(turnos.router, prefix="/api/v1", tags=["Turnos"])
-app.include_router(test_roles.router, prefix="/api/v1", tags=["Test Roles"])
+app.include_router(auth.router, prefix="/api/auth", tags=[" 🔐 Autenticación"])
+app.include_router(empresas.router, prefix="/api/v1", tags=[" 🏢 Empresas"])
+app.include_router(categorias.router, prefix="/api/v1", tags=[" 📂 Categorías"])
+app.include_router(turnos.router, prefix="/api/v1", tags=[" 📅 Turnos"])
+app.include_router(test_roles.router, prefix="/api/v1/test", tags=[" ⚙️ Test Roles"])
 app.include_router(auditoria.router)
+app.include_router(geo_test.router)
 
 app_logger.info("Todos los routers registrados correctamente")
 

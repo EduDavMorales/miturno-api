@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resumen Ejecutivo - Base de Datos MiTurno</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #16a085;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            padding: 12px;
+            text-align: left;
+        }
+        td {
+            padding: 10px;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        ul, ol {
+            margin-left: 20px;
+        }
+        .modulo {
+            background-color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .highlight {
+            background-color: #fff3cd;
+            padding: 15px;
+            border-left: 4px solid #ffc107;
+            margin: 20px 0;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        @media print {
+            body {
+                margin: 0;
+                padding: 20px;
+            }
+            h1 {
+                page-break-before: auto;
+            }
+            h2 {
+                page-break-after: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>📊 RESUMEN EJECUTIVO - BASE DE DATOS MITURNO</h1>
+
+<h2>🎯 VISIÓN GENERAL</h2>
+<p>La base de datos <strong>MiTurno</strong> implementa una arquitectura modular y escalable diseñada para gestionar un sistema completo de reservas de turnos con seguridad empresarial y trazabilidad completa.</p>
+
+<hr>
+
+<h2>🏗️ ARQUITECTURA POR MÓDULOS</h2>
+
+<div class="modulo">
+<h3>📦 MÓDULO CORE BUSINESS</h3>
+<p><strong>Tablas:</strong> empresa, usuario, categoria, servicio, turno</p>
+<p><strong>Funcionalidad:</strong></p>
+<ul>
+    <li>Gestión multiempresa con datos completos (horarios, contacto, configuración)</li>
+    <li>Usuarios híbridos que pueden ser clientes o empleados de empresas</li>
+    <li>Categorización de servicios para mejor organización</li>
+    <li>Gestión completa de turnos con estados, notas y trazabilidad</li>
+</ul>
+<p><strong>Decisión de diseño:</strong> Separación clara entre entidades de negocio para máxima flexibilidad.</p>
+</div>
+
+<div class="modulo">
+<h3>🔒 MÓDULO SEGURIDAD Y PERMISOS</h3>
+<p><strong>Tablas:</strong> rol, permiso, rol_permiso, usuario_rol, autorizacion_soporte</p>
+<p><strong>Funcionalidad:</strong></p>
+<ul>
+    <li>Sistema RBAC (Role-Based Access Control) estándar empresarial</li>
+    <li>Permisos granulares por recurso y acción</li>
+    <li>Roles contextuales (globales vs. específicos por empresa)</li>
+    <li>Autorizaciones temporales para soporte técnico con trazabilidad</li>
+</ul>
+<p><strong>Decisión de diseño:</strong> Arquitectura estándar de seguridad que permite escalabilidad y auditoría completa.</p>
+</div>
+
+<div class="modulo">
+<h3>📊 MÓDULO AUDITORÍA</h3>
+<p><strong>Tablas:</strong> auditoria_sistema, auditoria_detalle</p>
+<p><strong>Funcionalidad:</strong></p>
+<ul>
+    <li>Trazabilidad completa de todos los cambios críticos</li>
+    <li>Registro de acciones con contexto empresarial</li>
+    <li>Metadatos completos (IP, navegador, motivo, timestamps)</li>
+    <li>Cumplimiento normativo para auditorías externas</li>
+</ul>
+<p><strong>Decisión de diseño:</strong> Tabla genérica con estructura JSON para flexibilidad y performance.</p>
+</div>
+
+<div class="modulo">
+<h3>💬 MÓDULO COMUNICACIÓN</h3>
+<p><strong>Tablas:</strong> mensaje, notificacion</p>
+<p><strong>Funcionalidad:</strong></p>
+<ul>
+    <li>Chat interno por turno entre cliente y empresa</li>
+    <li>Sistema de notificaciones multicanal (email, SMS, push)</li>
+    <li>Programación de envíos para recordatorios automáticos</li>
+</ul>
+<p><strong>Decisión de diseño:</strong> Separación entre comunicación interactiva y notificaciones automáticas.</p>
+</div>
+
+<div class="modulo">
+<h3>⚙️ MÓDULO OPERACIONES</h3>
+<p><strong>Tablas:</strong> horario_empresa, bloqueo_horario</p>
+<p><strong>Funcionalidad:</strong></p>
+<ul>
+    <li>Configuración de horarios por día de semana</li>
+    <li>Bloqueos flexibles (vacaciones, feriados, mantenimiento)</li>
+    <li>Gestión temporal para disponibilidad de turnos</li>
+</ul>
+<p><strong>Decisión de diseño:</strong> Flexibilidad para manejar horarios complejos y excepciones.</p>
+</div>
+
+<div class="modulo">
+<h3>📍 MÓDULO GEOLOCALIZACIÓN (SPRINT 2 - NUEVO)</h3>
+<p><strong>Tabla afectada:</strong> empresa (campos adicionales)</p>
+<p><strong>Funcionalidad:</strong></p>
+<ul>
+    <li>Geocodificación automática de direcciones usando API Georef Argentina</li>
+    <li>Validación geográfica con detección de coordenadas incorrectas por zona</li>
+    <li>Búsqueda de empresas por proximidad optimizada con índice espacial</li>
+    <li>Sistema de confianza con metadata de calidad (good/needs_review/error)</li>
+</ul>
+
+<p><strong>Campos agregados:</strong></p>
+<ul>
+    <li><code>geocoding_confidence</code> VARCHAR(50) - Nivel de confianza de geocodificación</li>
+    <li><code>geocoding_warning</code> TEXT - Mensajes sobre problemas detectados</li>
+    <li><code>requires_verification</code> TINYINT(1) - Flag para revisión manual</li>
+</ul>
+
+<p><strong>Índice espacial:</strong></p>
+<ul>
+    <li><code>idx_empresa_coordenadas</code> (latitud, longitud) - Optimiza búsquedas < 500ms</li>
+</ul>
+
+<p><strong>Decisión de diseño:</strong> Separación de metadata de calidad para trazabilidad sin afectar campos core. Integración con API oficial del Estado Argentino (Georef) para normalización y precisión en territorio nacional.</p>
+</div>
+
+<hr>
+
+<h2>🗺️ INTEGRACIÓN API EXTERNA</h2>
+<p><strong>API:</strong> Georef - Servicio de Normalización y Geocodificación</p>
+<p><strong>Proveedor:</strong> Estado Argentino (datos oficiales INDEC)</p>
+<p><strong>Endpoint:</strong> https://apis.datos.gob.ar/georef/api/direcciones</p>
+
+<h3>Cobertura:</h3>
+<ul>
+    <li>Ciudad Autónoma de Buenos Aires (CABA)</li>
+    <li>Gran Buenos Aires (GBA Norte, Sur, Oeste)</li>
+    <li>Todas las provincias argentinas</li>
+</ul>
+
+<h3>Características:</h3>
+<ul>
+    <li>Normalización de direcciones</li>
+    <li>Coordenadas precisas basadas en catastro oficial</li>
+    <li>Sin límites de uso estrictos</li>
+    <li>Datos actualizados regularmente</li>
+</ul>
+
+<div class="highlight">
+<h3>⚠️ Limitaciones conocidas:</h3>
+<ul>
+    <li>Inconsistencias en algunos barrios históricos (ej: Caballito, Balvanera)</li>
+    <li>Requiere validación adicional para zonas con múltiples nombres</li>
+    <li>Alternativa: OpenStreetMap Nominatim como fallback</li>
+</ul>
+</div>
+
+<hr>
+
+<h2>🚀 BENEFICIOS DE LA ARQUITECTURA</h2>
+
+<h3>📈 ESCALABILIDAD</h3>
+<ul>
+    <li>Multiempresa nativa - Una instancia sirve múltiples clientes</li>
+    <li>Particionado natural por empresa_id para optimización</li>
+    <li>Estructura modular permite crecimiento independiente</li>
+</ul>
+
+<h3>🔐 SEGURIDAD EMPRESARIAL</h3>
+<ul>
+    <li>RBAC estándar reconocido por frameworks de seguridad</li>
+    <li>Auditoría completa para cumplimiento normativo</li>
+    <li>Isolación de datos por empresa con controles de acceso</li>
+</ul>
+
+<h3>🔧 MANTENIBILIDAD</h3>
+<ul>
+    <li>Separación clara de responsabilidades por módulo</li>
+    <li>Foreign Keys garantizan integridad referencial</li>
+    <li>Índices optimizados para consultas frecuentes</li>
+</ul>
+
+<h3>🎯 FLEXIBILIDAD DE NEGOCIO</h3>
+<ul>
+    <li>Configuración por empresa (horarios, servicios, roles)</li>
+    <li>Roles dinámicos adaptables a diferentes modelos de negocio</li>
+    <li>Sistema de permisos granular para casos complejos</li>
+</ul>
+
+<hr>
+
+<h2>📋 MÉTRICAS TÉCNICAS</h2>
+
+<table>
+    <tr>
+        <th>Aspecto</th>
+        <th>Valor</th>
+        <th>Justificación</th>
+    </tr>
+    <tr>
+        <td>Tablas principales</td>
+        <td>13</td>
+        <td>Cobertura completa sin sobre-ingeniería</td>
+    </tr>
+    <tr>
+        <td>Campos en <code>empresa</code></td>
+        <td>17</td>
+        <td>14 campos base + 3 metadata geolocalización</td>
+    </tr>
+    <tr>
+        <td>Relaciones FK</td>
+        <td>15+</td>
+        <td>Integridad referencial garantizada</td>
+    </tr>
+    <tr>
+        <td>Índices optimizados</td>
+        <td>26+</td>
+        <td>Performance en consultas críticas</td>
+    </tr>
+    <tr>
+        <td>Campos de auditoría</td>
+        <td>100%</td>
+        <td>Trazabilidad completa</td>
+    </tr>
+    <tr>
+        <td>Normalización</td>
+        <td>3NF</td>
+        <td>Balance entre performance y consistencia</td>
+    </tr>
+    <tr>
+        <td>Migraciones Alembic</td>
+        <td>1</td>
+        <td>Control de versiones de BD (Sprint 2)</td>
+    </tr>
+</table>
+
+<hr>
+
+<h2>🏆 CUMPLIMIENTO DE ESTÁNDARES</h2>
+
+<h3>✅ MEJORES PRÁCTICAS</h3>
+<ul>
+    <li>Naming conventions consistentes</li>
+    <li>Tipos de datos optimizados</li>
+    <li>Constraints apropiados</li>
+    <li>Soft deletes para preservar histórico</li>
+</ul>
+
+<h3>✅ ESCALABILIDAD EMPRESARIAL</h3>
+<ul>
+    <li>Particionado por empresa</li>
+    <li>Índices compuestos para consultas complejas</li>
+    <li>JSON fields para metadatos flexibles</li>
+    <li>Timestamps para todas las entidades</li>
+</ul>
+
+<hr>
+
+<h2>🎯 CONCLUSIÓN</h2>
+
+<p>La base de datos MiTurno implementa una <strong>arquitectura robusta y escalable</strong> que:</p>
+
+<ol>
+    <li>Soporta múltiples empresas con aislamiento de datos</li>
+    <li>Garantiza seguridad empresarial con RBAC completo</li>
+    <li>Proporciona trazabilidad total para auditorías</li>
+    <li>Permite crecimiento orgánico sin reestructuraciones</li>
+    <li>Mantiene performance con índices optimizados</li>
+    <li><strong>NUEVO: Habilita búsquedas geográficas precisas y rápidas</strong></li>
+</ol>
+
+<p>Esta arquitectura está preparada para escalar desde startups hasta empresas multinacionales, manteniendo los más altos estándares de seguridad y trazabilidad.</p>
+
+<hr>
+
+<p style="text-align: center; color: #7f8c8d; margin-top: 40px;">
+<strong>MiTurno API v2.0.0</strong><br>
+Última actualización: 30 de septiembre de 2025 (Sprint 2 - Geolocalización)<br>
+<em>Documento generado automáticamente desde esquema de base de datos</em>
+</p>
+
+</body>
+</html>

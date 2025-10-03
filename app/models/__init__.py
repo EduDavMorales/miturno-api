@@ -7,6 +7,8 @@ from .servicio import Servicio
 from .horario_empresa import HorarioEmpresa
 from .bloqueo_horario import BloqueoHorario
 from .rol import Rol, Permiso, RolPermiso, UsuarioRol, AutorizacionSoporte
+from .direccion import Direccion  
+from .auditoria_detalle import AuditoriaDetalle 
 
 __all__ = [
     "Usuario", "TipoUsuario",
@@ -21,5 +23,7 @@ __all__ = [
     "Permiso", 
     "RolPermiso", 
     "UsuarioRol", 
-    "AutorizacionSoporte"
+    "AutorizacionSoporte",
+    "Direccion"  
+    "AuditoriaDetalle"  
 ]

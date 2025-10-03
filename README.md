@@ -1,349 +1,467 @@
 # MiTurno API
 
-Sistema completo de gestión de turnos desarrollado con FastAPI, MySQL y Docker. Conecta empresas prestadoras de servicios con clientes que necesitan agendar citas a través de una plataforma robusta y segura.
+Sistema de gestión de turnos con FastAPI, MySQL y Docker. Conecta empresas prestadoras de servicios con clientes para agendar citas.
+
+## Tabla de Contenidos
+- [URLs del Proyecto](#urls-del-proyecto)
+- [Estado del Proyecto](#estado-del-proyecto)
+- [Stack Tecnológico](#stack-tecnológico)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Características Principales](#características-principales)
+- [Inicio Rápido](#inicio-rápido)
+- [API Endpoints](#api-endpoints)
+- [Base de Datos](#base-de-datos)
+- [Desarrollo](#desarrollo)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Integración Externa](#integración-externa)
+- [Arquitectura](#arquitectura)
+- [Documentación Adicional](#documentación-adicional)
+- [Roadmap](#roadmap)
+- [Troubleshooting](#troubleshooting)
+- [Contacto](#contacto)
+
+## URLs del Proyecto
+
+- **Producción:** https://miturno-api-production.up.railway.app
+- **Documentación Producción:** https://miturno-api-production.up.railway.app/docs
+- **Desarrollo Local:** http://localhost:8000
+- **Documentación Local:** http://localhost:8000/docs
 
 ## Estado del Proyecto
 
-- **Progreso:** 95% FUNCIONAL Y VALIDADO
-- **Tecnologías:** Python 3.11, FastAPI, MySQL 8.0, Docker, Pydantic v2, SQLAlchemy
-- **Arquitectura:** Clean Architecture + Service Layer + Sistema de Roles Granulares
-- **Testing:** Flujo end-to-end completo validado (autenticación → reserva → gestión)
-- **Status:** SISTEMA LISTO PARA PRODUCCIÓN
+**Versión:** v2.1.0-SPRINT2  
+**Estado:** Producción 95% + Sprint 2 Geolocalización (60%)  
+**Deployment:** Railway (auto-deploy desde main)
 
-## Funcionalidades Validadas
+## Stack Tecnológico
 
-### Sistema de Autenticación JWT - OPERATIVO
-- **Login completo** con tokens JWT válidos
-- **Usuario de prueba validado:** test.roles.v2@miturno.com / 12345678
-- **Token generado exitosamente:** eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-- **Autorización por headers** funcionando en todos los endpoints
+- Python 3.11 + FastAPI
+- MySQL 8.0
+- SQLAlchemy 2.0 + Alembic 1.13
+- Pydantic v2
+- JWT Authentication
+- Docker + Docker Compose
+- API Georef Argentina (geolocalización)
 
-### Sistema de Roles y Permisos - VALIDADO
-- **7 roles jerárquicos:** Cliente, Empleado, Recepcionista, Admin Empresa, Dueño Empresa, Admin Sistema, Super Admin
-- **31 permisos granulares** por recurso y acción
-- **Testing confirmado:** Usuario CLIENTE con 7 permisos específicos validados
-- **Permisos clave operativos:** turno.create.own, turno.read.own, turno.cancel.own
+## Estructura del Proyecto
 
-### Sistema de Turnos - 100% FUNCIONAL
-**Disponibilidad de Turnos:** 
-```http
-GET /api/v1/empresas/1/disponibilidad?fecha=2025-09-19
+<details>
+<summary>📁 Ver estructura de carpetas</summary>
+
 ```
-- **53 slots calculados** correctamente para Barbería Central
-- **Considera horarios** de trabajo, servicios y conflictos
-- **Algoritmo inteligente** de disponibilidad operativo
+MiTurno/
+|   .dockerignore
+|   .env
+|   .env.example
+|   .gitignore
+|   alembic.ini
+|   debug_enum.py
+|   docker-compose.dev.yml
+|   docker-compose.prod.yml
+|   docker-compose.yml
+|   Dockerfile
+|   estructura.txt
+|   README.md
+|   README.md.backup
+|   requirements.txt
+|   schema_actual.sql
+|   test_compare_apis.py
+|   test_geocodiing_local.py
+|   test_geocoding_local.py
+|   
++---alembic
+|   |   env.py
+|   |   README
+|   |   script.py.mako
+|   |   
+|   \---versions
+|           9e275309deea_add_geocoding_metadata_fields.py
+|           
++---app
+|   |   config.py
+|   |   crud.py
+|   |   database.py
+|   |   enums.py
+|   |   main.py
+|   |   __init__.py
+|   |   
+|   +---api
+|   |   |   deps.py
+|   |   |   __init__.py
+|   |   |   
+|   |   +---v1
+|   |   |   |   auth.py
+|   |   |   |   categorias.py
+|   |   |   |   empresas.py
+|   |   |   |   test_roles.py
+|   |   |   |   turnos.py
+|   |   |   |   __init__.py
+|   |   |   |   
+|   |   |   \---__pycache__
+|   |   |           auth.cpython-313.pyc
+|   |   |           __init__.cpython-313.pyc
+|   |   |           
+|   |   \---__pycache__
+|   |           __init__.cpython-313.pyc
+|   |           
+|   +---auth
+|   |       permissions.py
+|   |       
+|   +---core
+|   |   |   exceptions.py
+|   |   |   logger.py
+|   |   |   security.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           security.cpython-313.pyc
+|   |           __init__.cpython-313.pyc
+|   |           
+|   +---middleware
+|   |       auditoria_middleware.py
+|   |       
+|   +---models
+|   |   |   auditoria.py
+|   |   |   auditoria_detalle.py
+|   |   |   bloqueo_horario.py
+|   |   |   categoria.py
+|   |   |   direccion.py
+|   |   |   empresa.py
+|   |   |   horario_empresa.py
+|   |   |   mensaje.py
+|   |   |   rol.py
+|   |   |   servicio.py
+|   |   |   turno.py
+|   |   |   user.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           categoria.cpython-313.pyc
+|   |           empresa.cpython-313.pyc
+|   |           mensaje.cpython-313.pyc
+|   |           servicio.cpython-313.pyc
+|   |           turno.cpython-313.pyc
+|   |           user.cpython-313.pyc
+|   |           __init__.cpython-313.pyc
+|   |           
+|   +---routers
+|   |       auditoria.py
+|   |       geo_test.py
+|   |       
+|   +---schemas
+|   |   |   auditoria.py
+|   |   |   auth.py
+|   |   |   categoria.py
+|   |   |   direccion.py
+|   |   |   empresa.py
+|   |   |   geo.py
+|   |   |   turno.py
+|   |   |   user.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           auth.cpython-313.pyc
+|   |           __init__.cpython-313.pyc
+|   |           
+|   +---services
+|   |   |   auditoria_service.py
+|   |   |   empresa_service.py
+|   |   |   geocoding_service.py
+|   |   |   geocoding_service_new.py
+|   |   |   geo_validation_service.py
+|   |   |   turno_service.py
+|   |   |   __init__.py
+|   |   |   
+|   |   \---__pycache__
+|   |           geocoding_service_new.cpython-313.pyc
+|   |           __init__.cpython-313.pyc
+|   |           
+|   +---utils
+|   \---__pycache__
+|           config.cpython-313.pyc
+|           database.cpython-313.pyc
+|           main.cpython-313.pyc
+|           __init__.cpython-313.pyc
+|           
+\---docs
+        base de datos con auditoria.pdf
+        Base de datos geolocalizacion sprint2.pdf
+        miturno_estructura.sql
+        MiTurno_estructura_normalizada.png
+        MiTurno_estructura_normalizada_sprint2.sql
+        MiTurno_estructura_nueva.png
+        miturno_updated_docs.md
+        README.md
+        resumen_ejecutivo_bd_miturno_actualizado.html
+        sprint2_geolocalizacion.md
 
-**Gestión Completa de Turnos (Validada):**
-- **Reserva:** Turno ID 13 creado exitosamente (Barbería Central, 09:00-09:30)
-- **Listado:** Paginación funcional con 1 turno de 1 total
-- **Modificación:** Hora cambiada 09:00→10:00 exitosamente  
-- **Cancelación:** Estado pendiente→cancelado con audit trail completo
-- **Soft delete:** Datos preservados, sin eliminación física
-
-### Sistema de Auditoría - IMPLEMENTADO
-- **AuditoriaService:** Servicio completo para tracking de cambios
-- **Modelos de auditoría:** app/models/auditoria.py operativo
-- **Schemas de auditoría:** app/schemas/auditoria.py definidos
-- **Tabla auditoria_sistema:** Trazabilidad completa funcionando
-- **Soft delete:** Preservación de datos históricos
-
-### Arquitectura Service Layer - VALIDADA
-- **TurnoService:** 8 métodos funcionando perfectamente
-- **AuditoriaService:** Sistema de tracking implementado
-- **Cálculo automático:** hora_fin calculada dinámicamente (10:00→10:30)
-- **Validaciones robustas:** Fechas, conflictos, permisos integrados
-- **Audit trail completo:** Timestamps de creación, modificación, cancelación
-
-## Testing Sistemático Completado
-
-### Flujo End-to-End Validado
 ```
-1. LOGIN → test.roles.v2@miturno.com ✅
-2. PERMISOS → 7 permisos verificados ✅  
-3. DISPONIBILIDAD → 53 slots calculados ✅
-4. RESERVA → Turno ID 13 creado ✅
-5. LISTADO → Paginación funcional ✅
-6. MODIFICACIÓN → Hora actualizada ✅
-7. CANCELACIÓN → Soft delete completo ✅
-```
 
-### Resultados de Testing Real
-- **Usuario autenticado:** test.roles.v2@miturno.com (ID: 3, CLIENTE)
-- **JWT Token:** Válido y operativo
-- **Turno de prueba:** ID 13, Barbería Central, Corte de Cabello ($15)
-- **Flujo completo:** Creación → Modificación → Cancelación exitosa
-- **Base de datos:** Datos preservados con audit trail completo
+</details>
 
-## URLs de Desarrollo
+### Descripción de la Arquitectura
 
-- **API Base:** http://localhost:8000
-- **Documentación Interactiva:** http://localhost:8000/docs
-- **Base de datos:** localhost:3306
+- **`/app`**: Núcleo de la aplicación FastAPI siguiendo Clean Architecture
+- **`/app/api/v1`**: Endpoints REST API versionados
+- **`/app/models`**: Modelos SQLAlchemy para base de datos
+- **`/app/schemas`**: Esquemas Pydantic para validación y serialización
+- **`/app/services`**: Capa de lógica de negocio
+- **`/app/core`**: Configuraciones centrales, seguridad y excepciones
+- **`/app/auth`**: Sistema de permisos y roles (RBAC)
+- **`/app/middleware`**: Middleware personalizado (auditoría)
+- **`/alembic`**: Migraciones de base de datos
+- **`/docs`**: Documentación técnica y diagramas ER
+
+
+## Características Principales
+
+### Core (Producción)
+- ✅ Autenticación JWT
+- ✅ Sistema de roles y permisos (RBAC)
+- ✅ Gestión completa de turnos
+- ✅ Cálculo de disponibilidad
+- ✅ Auditoría de cambios
+- ✅ Soft delete
+
+### Sprint 2 - Geolocalización (Desarrollo)
+- ✅ Migración BD con 3 campos metadata
+- ✅ Índice espacial para búsquedas geográficas
+- ✅ GeocodingService (API Georef Argentina)
+- ✅ GeoValidationService (validación por zona)
+- ✅ Endpoint testing funcional
+- ⏳ Búsqueda por proximidad
+- ⏳ Endpoints producción
 
 ## Inicio Rápido
 
-### Prerrequisitos
-- Docker Desktop
-- Git
+### Desarrollo Local
 
-### Instalación
 ```bash
-# Clonar repositorio
-git clone [tu-repo-url]
-cd turnos-api
-
-# Iniciar servicios
+git clone https://github.com/EduDavMorales/miturno-api.git
+cd miturno-api
+cp .env.example .env
 docker-compose up -d
-
-# Verificar funcionamiento
-curl http://localhost:8000/api/v1/empresas/1/disponibilidad?fecha=2025-09-19
+curl http://localhost:8000/docs
 ```
 
-### Testing Inmediato
-1. Ve a: http://localhost:8000/docs
-2. **Login:** POST /login con test.roles.v2@miturno.com / 12345678
-3. **Autorizar:** Click "Authorize" y pegar el token JWT
-4. **Probar reserva:** POST /turnos/reservar con empresa_id=1, fecha=2025-09-19
+## API Endpoints
 
-## API Endpoints - TODOS VALIDADOS
+### Autenticación
 
-### Autenticación (Funcional)
-```http
-POST /api/auth/login             # ✅ Login JWT validado
-POST /api/auth/register          # Registro usuarios  
+- `POST /api/auth/login` - Login JWT
+- `POST /api/auth/register` - Registro usuarios
+
+### Gestión de Turnos
+
+- `GET /api/v1/empresas/{id}/disponibilidad` - Ver slots disponibles
+- `POST /api/v1/turnos/reservar` - Reservar turno
+- `GET /api/v1/mis-turnos` - Listar mis turnos
+- `PUT /api/v1/turnos/{id}` - Modificar turno
+- `PUT /api/v1/turnos/{id}/cancelar` - Cancelar turno
+
+### Geolocalización (Testing - Sprint 2)
+
+- `POST /api/v1/geo-test/geocode` - Geocodificar dirección
+
+**Ejemplo de uso:**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/geo-test/geocode \
+  -H "Content-Type: application/json" \
+  -d '{
+    "calle": "Av Corrientes",
+    "numero": "1000",
+    "ciudad": "CABA",
+    "provincia": "Ciudad Autónoma de Buenos Aires",
+    "codigo_postal": "1043"
+}'
 ```
 
-### Sistema de Turnos (100% Operativo)
-```http
-GET  /api/v1/empresas/{id}/disponibilidad  # ✅ 53 slots calculados
-POST /api/v1/turnos/reservar              # ✅ Turno ID 13 creado
-GET  /api/v1/mis-turnos                   # ✅ Listado con paginación
-PUT  /api/v1/turnos/{id}                  # ✅ Modificación validada
-PUT  /api/v1/turnos/{id}/cancelar         # ✅ Cancelación soft delete
-```
+## Base de Datos
 
-### Testing y Permisos (Operativo)
-```http
-GET  /api/v1/test/mis-permisos    # ✅ 7 permisos verificados
-GET  /api/v1/test/verificar-permiso/{codigo}
-```
+### Estructura
 
-### Sistema de Empresas
-```http
-GET  /api/v1/empresas             # Listar con filtros
-POST /api/v1/empresas             # Crear empresa
-GET  /api/v1/empresas/{id}        # Obtener específica
-```
+- 16 tablas de negocio/auditoría
+- 1 tabla técnica (alembic_version)
+- Total: 17 tablas
+- Sistema RBAC (7 roles, 31 permisos)
+- Auditoría completa
 
-### Endpoints Legacy (Compatibilidad)
-```http
-GET  /api/v1/turnos               # Listar básico
-POST /api/v1/turnos               # Crear básico
-DELETE /api/v1/turnos/{id}        # @deprecated
-```
+### Campos Geolocalización (Sprint 2)
 
-## Arquitectura Validada
-
-### Service Layer Operativo
-```python
-TurnoService - 16KB de lógica validada:
-├── obtener_disponibilidad()     # ✅ 53 slots calculados
-├── reservar_turno()             # ✅ Turno ID 13 creado
-├── obtener_turnos_usuario()     # ✅ Listado paginado
-├── modificar_turno()            # ✅ Hora actualizada
-├── cancelar_turno()             # ✅ Soft delete funcional
-├── _calcular_hora_fin()         # ✅ 10:00→10:30 automático
-├── _validar_horario_disponible() # Validaciones operativas
-└── _convertir_a_turno_response() # Schemas integrados
-
-AuditoriaService - Sistema de tracking:
-├── registrar_cambio()           # ✅ Tracking implementado
-├── obtener_historial()          # ✅ Consulta de auditoría
-└── _preparar_metadatos()        # ✅ Contexto completo
-```
-
-### Middlewares y Excepciones Personalizadas
-```python
-app/middleware/                   # Middlewares personalizados
-app/core/exceptions.py           # Manejo de errores robusto
-app/routers/                     # Organización modular de rutas
-```
-
-### Datos de Producción Configurados
-```
-Empresa: Barbería Central (ID: 1)
-├── Servicios: 3 servicios con precios reales
-│   ├── Corte de Cabello: $15 / 30min ✅ PROBADO
-│   ├── Barba: $10 / 20min
-│   └── Corte + Barba: $20 / 45min
-├── Horarios: Lunes-sábado (09:00-18:00) ✅ VALIDADO  
-└── Disponibilidad: 53 slots calculados ✅ OPERATIVO
-
-Usuario de Producción:
-├── Email: test.roles.v2@miturno.com ✅ AUTENTICADO
-├── Password: 12345678 ✅ VÁLIDO
-├── Tipo: CLIENTE ✅ CONFIRMADO
-├── Permisos: 7 permisos granulares ✅ VERIFICADOS
-└── Turnos: ID 13 ciclo completo ✅ VALIDADO
-```
-
-## Base de Datos en Producción
-
-### Estructura Completa (14 tablas)
-```
-usuario ┬─ empresa ─── servicio
-        ├─ turno ──── horario_empresa  
-        ├─ auditoria_sistema (tracking completo)
-        └─ usuario_rol ─── rol ─── rol_permiso ─── permiso
-```
-
-### Datos Validados en BD
-- **3 usuarios** reales configurados
-- **1 empresa** operativa (Barbería Central)  
-- **3 servicios** con precios y duraciones
-- **6 horarios** configurados (lunes-sábado)
-- **1 turno** con ciclo completo validado (ID 13)
-- **Sistema de auditoría** operativo con trazabilidad
-
-### Testing en Base de Datos
 ```sql
--- Turno validado en producción
-SELECT * FROM turno WHERE turno_id = 13;
--- Estado: cancelado, Audit trail completo
--- fecha_creacion, fecha_actualizacion, fecha_cancelacion registradas
-
--- Auditoría funcionando
-SELECT * FROM auditoria_sistema WHERE tabla_afectada = 'turno';
--- Tracking de cambios completo
+-- Tabla empresa
+latitud DECIMAL(10,8)
+longitud DECIMAL(11,8)
+geocoding_confidence VARCHAR(50)
+geocoding_warning TEXT
+requires_verification BOOLEAN
+INDEX idx_empresa_coordenadas (latitud, longitud)
 ```
 
-## Desarrollo y Comandos
+### Migraciones Alembic
 
-### Hot Reload Development
 ```bash
-# Desarrollo con recarga automática
-docker-compose up -d
+# Dentro del contenedor
+docker exec -it turnos-api-backend-1 bash
 
-# Ver logs en tiempo real
+# Ver estado
+alembic current
+
+# Aplicar migraciones
+alembic upgrade head
+
+# Crear nueva
+alembic revision --autogenerate -m "descripcion"
+```
+
+## Desarrollo
+
+### Comandos Docker
+
+```bash
+# Logs en tiempo real
 docker-compose logs -f backend
 
-# Testing de conectividad
-curl http://localhost:8000/api/v1/empresas/1/disponibilidad?fecha=2025-09-19
+# Reiniciar servicio
+docker-compose restart backend
+
+# Rebuild completo (sin caché)
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
-### Comandos de Testing
+### Service Layer
+
+- **TurnoService** - Lógica de turnos
+- **AuditoriaService** - Tracking de cambios
+- **GeocodingService** - Geocodificación (Sprint 2)
+- **GeoValidationService** - Validación geográfica (Sprint 2)
+
+## Testing
+
+### Testing manual vía Swagger UI
+
+Actualmente, las pruebas funcionales se realizan manualmente desde la interfaz interactiva de Swagger UI que genera FastAPI:
+
+1. Accede a [http://localhost:8000/docs](http://localhost:8000/docs) (o https://miturno-api-production.up.railway.app/docs).
+2. Haz login con el usuario de prueba:
+   - **Email:** test.roles.v2@miturno.com
+   - **Password:** 12345678
+3. Obtén el JWT token y autoriza la sesión (botón "Authorize").
+4. Prueba los endpoints protegidos y funcionales desde la interfaz.
+5. Para endpoints de geolocalización, utiliza el ejemplo de payload que aparece en la documentación.
+
+### Recomendación para automatización
+
+Para escalar el testing y obtener cobertura automática, se recomienda implementar tests automatizados con `pytest` y `httpx` en el futuro. Ejemplo de comando:
+
 ```bash
-# Login y obtener token
-curl -X POST "http://localhost:8000/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test.roles.v2@miturno.com","password":"12345678"}'
-
-# Reservar turno (con token)
-curl -X POST "http://localhost:8000/api/v1/turnos/reservar" \
-  -H "Authorization: Bearer [TOKEN]" \
-  -H "Content-Type: application/json" \
-  -d '{"empresa_id":1,"servicio_id":1,"fecha":"2025-01-20","hora":"11:00:00"}'
+pytest
 ```
 
-## Arquitectura Técnica Validada
+## Deployment
 
-### Principios Implementados y Probados
-- **Clean Architecture**: Separación de capas validada
-- **Service Layer Pattern**: Lógica centralizada operativa  
-- **Soft Delete**: No eliminación física confirmada
-- **JWT Security**: Autenticación robusta funcionando
-- **Audit Trail**: Timestamps completos registrados
-- **Pydantic v2**: Validaciones y serialización operativas
+### Railway (Producción)
 
-### Mejoras Arquitectónicas Confirmadas
-- **Consistencia HTTP**: PUT /cancelar (no DELETE) funcionando
-- **Cálculos dinámicos**: hora_fin automática operativa
-- **Contexto de usuario**: Solo acceso a recursos propios validado
-- **Paginación**: Sistema funcional con metadatos correctos
-- **Manejo de excepciones**: Sistema robusto de errores
-- **Middleware personalizado**: Capas adicionales de procesamiento
+- Auto-deploy al pushear a main
+- **URL:** https://miturno-api-production.up.railway.app
+- Base de datos MySQL Railway
+- Logs en Railway dashboard
 
-## Métricas del Sistema Validadas
+### Variables de Entorno
 
-### Testing Completado
-- **7 fases** de testing sistemático completadas
-- **1 usuario** autenticado exitosamente  
-- **1 turno** con ciclo completo (creación→modificación→cancelación)
-- **53 slots** de disponibilidad calculados correctamente
-- **7 permisos** verificados por usuario CLIENTE
-- **100% endpoints críticos** funcionando
+**Configuración requerida** (copiar `.env.example` → `.env`):
 
-### Arquitectura en Producción
-- **14 tablas** operativas en base de datos
-- **8 métodos** del service layer validados
-- **31 permisos** granulares implementados
-- **5 endpoints** nuevos + 3 legacy funcionales
-- **0 errores** en flujo end-to-end completo
-- **Sistema de auditoría** completamente funcional
+| Variable | Ejemplo | Descripción |
+|----------|---------|-------------|
+| `DATABASE_URL` | `mysql+pymysql://USER:PASSWORD@turnos-db:3306/sistema_turnos` | Cadena de conexión a MySQL |
+| `SECRET_KEY` | `YOUR_SECRET_KEY_HERE` | Clave para firmar JWT  |
+| `DEBUG` | `False` | `True` solo en desarrollo local |
+| `BACKEND_PORT` | `8000` | Puerto de la aplicación |
+| `GEOREF_API_URL` | `https://apis.datos.gob.ar/georef/api` | Endpoint API Georef Argentina |
+| `GEOREF_TIMEOUT` | `5` | Timeout en segundos para geocodificación |
 
-## Estado de Producción
+**⚠️ Seguridad:** Nunca subir archivos `.env` al repositorio. Usar solo placeholders en documentación.
 
-### Sistema 95% Operativo
-- Base de datos: Datos reales configurados
-- API Backend: Todos los endpoints críticos funcionando  
-- Autenticación: JWT tokens válidos y seguros
-- Lógica de negocio: Service layer completamente validado
-- Testing: Flujo end-to-end sin errores
-- Documentación: Actualizada y precisa
-- Auditoría: Sistema de tracking operativo
+## Integración Externa
 
-### Próximas Mejoras (Sprint 2)
-- **OAuth Google integration** (infraestructura de auditoría lista)
-- **Dashboard empresarial** con métricas
-- **Notificaciones automáticas** por email/WhatsApp
-- **Búsqueda geográfica** por proximidad  
-- **App móvil** con React Native
-- **Chat en tiempo real** con WebSockets
+### API Georef Argentina (Sprint 2)
 
-## Datos de Acceso en Producción
+- **Proveedor:** Estado Argentino (INDEC)
+- **Endpoint:** https://apis.datos.gob.ar/georef/api/direcciones
+- **Uso:** Geocodificación de direcciones argentinas
+- **Status:** ✅ Integrada y funcional
 
-### Usuario de Testing Validado
-```
-Email: test.roles.v2@miturno.com
-Password: 12345678
-Tipo: CLIENTE
-Permisos: 7 validados
-Estado: ACTIVO Y FUNCIONAL
-```
+**Limitaciones conocidas:**
+- Datos incompletos en algunas zonas
+- Calles homónimas pueden dar primera coincidencia
+- Sistema de validación automática implementado
 
-### Empresa de Testing Operativa  
-```
-Barbería Central (ID: 1)
-├── 3 servicios activos
-├── Horarios: Lunes-sábado 09:00-18:00
-├── 53 slots disponibles calculados
-└── Turno ID 13 validado completamente
-```
+## Arquitectura
+
+- Clean Architecture
+- Service Layer Pattern
+- Repository Pattern (SQLAlchemy)
+- Dependency Injection (FastAPI)
+- JWT Authentication
+- Database Migrations (Alembic)
+- Soft Delete
+
+## Documentación Adicional
+
+- **Sprint 2 Geolocalización:** `/docs/sprint2_geolocalizacion.md`
+- **Diagrama ER:** `/docs/MiTurno_estructura_nueva.png`
+- **Script BD:** `/docs/MiTurno_estructura_normalizada_sprint2.sql`
+
+## Roadmap
+
+### Completado
+
+- ✅ Autenticación JWT
+- ✅ Sistema de turnos completo
+- ✅ Roles y permisos RBAC
+- ✅ Auditoría
+- ✅ Migraciones Alembic
+- ✅ Servicios geocodificación
+- ✅ Endpoint testing geocoding
+
+### En Progreso (Sprint 2)
+
+- 🔄 GeolocationService
+- 🔄 Endpoints búsqueda geográfica
+- 🔄 Tests geolocalización
+
+### Backlog
+
+- 📋 OAuth Google
+- 📋 Notificaciones
+- 📋 Dashboard empresarial
 
 ## Troubleshooting
 
-### Sistema Validado - Sin Issues Conocidos
-El sistema ha pasado testing sistemático completo sin errores críticos.
-
 ```bash
-# Verificar funcionamiento
+# Verificar servicios
 docker-compose ps
-curl http://localhost:8000/api/v1/empresas/1/disponibilidad?fecha=2025-01-20
 
-# Reinicio limpio si es necesario
-docker-compose down && docker-compose up -d
+# Ver logs con errores
+docker logs turnos-api-backend-1 --tail 50
+
+# Reinicio limpio (sin caché)
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
 ```
 
-## Contacto y Documentación
+## Contacto
 
-- **Documentación Interactiva:** http://localhost:8000/docs (100% validada)
-- **Testing Guide:** Usar test.roles.v2@miturno.com / 12345678
-- **Status del Sistema:** PRODUCCIÓN - 95% FUNCIONAL
-- **GitHub Issues:** Para nuevas features
+- **Issues:** GitHub Issues
+- **Docs:** https://miturno-api-production.up.railway.app/docs
 
 ---
 
-**Última actualización:** Septiembre 2025  
-**Versión:** v2.0.0-PRODUCTION  
-**Status:** SISTEMA LISTO PARA DEPLOY EN PRODUCCIÓN  
-**Testing:** Flujo end-to-end completado exitosamente
+**Última actualización:** Octubre 2025 (Sprint 2)  
+**Deploy:** Railway Auto-Deploy desde main  
+**Status:** Producción + Geolocalización en desarrollo
