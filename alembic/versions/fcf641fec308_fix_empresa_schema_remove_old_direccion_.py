@@ -18,23 +18,13 @@ depends_on = None
 def upgrade():
     """Eliminar columna direccion antigua de tabla empresa"""
     
-    # Verificar si la columna existe antes de intentar eliminarla
-    # (para evitar errores si ya fue eliminada)
-    op.execute("""
-        SET @exist := (SELECT COUNT(*) 
-                       FROM information_schema.COLUMNS 
-                       WHERE TABLE_SCHEMA = DATABASE() 
-                       AND TABLE_NAME = 'empresa' 
-                       AND COLUMN_NAME = 'direccion');
-        
-        SET @sqlstmt := IF(@exist > 0, 
-                          'ALTER TABLE empresa DROP COLUMN direccion', 
-                          'SELECT "Column direccion does not exist" AS Info');
-        
-        PREPARE stmt FROM @sqlstmt;
-        EXECUTE stmt;
-        DEALLOCATE PREPARE stmt;
-    """)
+    # Intentar eliminar la columna, ignorar error si no existe
+    try:
+        op.drop_column('empresa', 'direccion')
+    except Exception as e:
+        # Si la columna no existe, continuar sin error
+        print(f"Columna 'direccion' no existe o ya fue eliminada: {e}")
+        pass
 
 
 def downgrade():
