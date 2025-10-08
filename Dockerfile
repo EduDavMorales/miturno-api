@@ -24,8 +24,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copiar código fuente
 COPY . .
 
+# Copiar y dar permisos al script de inicio
+COPY start.sh .
+RUN chmod +x start.sh
+
 # Exponer puerto
 EXPOSE 8000
 
-# Comando por defecto (se puede sobreescribir en docker-compose)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Ejecutar script que corre migraciones y luego inicia el servidor
+CMD ["./start.sh"]
