@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
-from app.api.v1 import auth, empresas, categorias, turnos, test_roles
+from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion
 from app.routers import auditoria, geo_test
 from app.database import engine
 from app.models import user  
@@ -59,6 +59,7 @@ app.include_router(turnos.router, prefix="/api/v1", tags=[" 📅 Turnos"])
 app.include_router(test_roles.router, prefix="/api/v1/test", tags=[" ⚙️ Test Roles"])
 app.include_router(auditoria.router)
 app.include_router(geo_test.router)
+app.include_router(geolocalizacion.router, prefix="/api/v1", tags=["📍 Geolocalización"])
 
 app_logger.info("Todos los routers registrados correctamente")
 
