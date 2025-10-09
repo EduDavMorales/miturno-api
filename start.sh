@@ -1,9 +1,6 @@
 #!/bin/bash
 set -e
 
-echo "🔄 Creando tablas base..."
-python -c "from app.database import engine; from app.models.user import Base; Base.metadata.create_all(bind=engine)"
-
 echo "🔄 Ejecutando migraciones de Alembic..."
 alembic upgrade head
 
