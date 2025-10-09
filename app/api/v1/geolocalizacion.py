@@ -88,7 +88,7 @@ async def buscar_por_direccion(
     
     Primero geocodifica la dirección y luego busca empresas en el radio especificado.
     
-    Ejemplo: /geolocalizacion/buscar-por-direccion?calle=Av%20Corrientes&numero=1000&ciudad=CABA&provincia=CABA&radio_km=50
+    Ejemplo: /geolocalizacion/buscar-por-direccion?calle=Av%20Corrientes&numero=1000&ciudad=CABA&provincia=Buenos%20Aires&radio_km=50
     """
     try:
         # 1. Geocodificar la dirección
@@ -100,19 +100,21 @@ async def buscar_por_direccion(
             codigo_postal=codigo_postal
         )
         
-        if not resultado_geocoding.get("valida") or not resultado_geocoding.get("coordenadas"):
+        # Verificar que se obtuvo resultado válido
+        if not resultado_geocoding or not resultado_geocoding.get("coordinates"):
             raise HTTPException(
                 status_code=400,
                 detail="No se pudo geocodificar la dirección proporcionada"
             )
         
-        coordenadas = resultado_geocoding["coordenadas"]
+        # Extraer coordenadas (formato: tuple (lat, lng))
+        lat, lng = resultado_geocoding["coordinates"]
         
         # 2. Buscar empresas cercanas
         empresas_encontradas = geolocation_service.find_nearby_empresas(
             db=db,
-            latitud=coordenadas["latitud"],
-            longitud=coordenadas["longitud"],
+            latitud=lat,
+            longitud=lng,
             radio_km=radio_km,
             categoria_id=categoria_id,
             limit=50
@@ -137,8 +139,8 @@ async def buscar_por_direccion(
         
         return ResultadoBusquedaGeografica(
             punto_busqueda=GeoLocation(
-                latitud=coordenadas["latitud"],
-                longitud=coordenadas["longitud"]
+                latitud=lat,
+                longitud=lng
             ),
             radio_km=radio_km,
             total_encontradas=len(empresas_response),
