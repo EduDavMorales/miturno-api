@@ -37,7 +37,7 @@ class AuditoriaService:
         """Obtener auditoría paginada usando la vista optimizada"""
         
         # Query base usando la vista
-        query = "SELECT * FROM auditoria_detalle WHERE 1=1"
+        query = "SELECT * FROM auditoria_sistema WHERE 1=1"
         params = {}
         
         # Aplicar filtros dinámicamente
@@ -122,16 +122,37 @@ class AuditoriaService:
     ) -> HistorialRegistro:
         """Obtener historial completo de un registro específico"""
         
+        # Query directo sin función SQL
+        query = """
+        SELECT 
+            auditoria_id,
+            tabla_afectada,
+            registro_id,
+            accion,
+            usuario_id,
+            empresa_id,
+            datos_anteriores,
+            datos_nuevos,
+            campos_modificados,
+            motivo,
+            fecha_cambio
+        FROM auditoria_sistema
+        WHERE tabla_afectada = :tabla
+        AND registro_id = :registro_id
+        AND fecha_cambio >= DATE_SUB(NOW(), INTERVAL :dias_atras DAY)
+        ORDER BY fecha_cambio DESC
+        """
+        
         result = db.execute(
-            text("SELECT obtener_auditoria_registro(:tabla, :registro_id, :dias_atras) as historial"),
+            text(query),
             {
                 'tabla': tabla_afectada,
                 'registro_id': registro_id,
                 'dias_atras': dias_atras
             }
-        ).scalar()
+        ).fetchall()
         
-        historial = json.loads(result) if result else []
+        historial = [dict(row._mapping) for row in result]
         
         return HistorialRegistro(
             tabla_afectada=tabla_afectada,
@@ -140,43 +161,55 @@ class AuditoriaService:
             total_cambios=len(historial),
             periodo_dias=dias_atras
         )
-    
+
     @staticmethod
     def obtener_estadisticas(
         db: Session,
         tabla_afectada: Optional[str] = None,
         dias_atras: int = 30
     ) -> EstadisticasAuditoria:
-        """Obtener estadísticas de auditoría usando función SQL"""
+        """Obtener estadísticas de auditoría"""
         
-        result = db.execute(
-            text("SELECT obtener_estadisticas_auditoria(:tabla, :dias_atras) as stats"),
-            {
-                'tabla': tabla_afectada,
-                'dias_atras': dias_atras
-            }
-        ).scalar()
+        # Query directo sin función SQL
+        base_query = """
+        SELECT 
+            COUNT(*) as total_cambios,
+            COUNT(DISTINCT usuario_id) as usuarios_activos,
+            COUNT(DISTINCT empresa_id) as empresas_afectadas
+        FROM auditoria_sistema
+        WHERE fecha_cambio >= DATE_SUB(NOW(), INTERVAL :dias_atras DAY)
+        """
+        params = {'dias_atras': dias_atras}
         
-        if result:
-            stats_data = json.loads(result)
-            return EstadisticasAuditoria(
-                total_cambios=stats_data.get('total_cambios', 0),
-                usuarios_activos=stats_data.get('usuarios_activos', 0),
-                empresas_afectadas=stats_data.get('empresas_afectadas', 0),
-                acciones_por_tipo=stats_data.get('acciones_por_tipo', []),
-                periodo_dias=dias_atras,
-                tabla_consultada=tabla_afectada
-            )
-        else:
-            # Fallback si la función no retorna datos
-            return EstadisticasAuditoria(
-                total_cambios=0,
-                usuarios_activos=0,
-                empresas_afectadas=0,
-                acciones_por_tipo=[],
-                periodo_dias=dias_atras,
-                tabla_consultada=tabla_afectada
-            )
+        if tabla_afectada:
+            base_query += " AND tabla_afectada = :tabla"
+            params['tabla'] = tabla_afectada
+        
+        result = db.execute(text(base_query), params).fetchone()
+        
+        # Query para acciones por tipo
+        acciones_query = """
+        SELECT 
+            accion,
+            COUNT(*) as cantidad
+        FROM auditoria_sistema
+        WHERE fecha_cambio >= DATE_SUB(NOW(), INTERVAL :dias_atras DAY)
+        """
+        if tabla_afectada:
+            acciones_query += " AND tabla_afectada = :tabla"
+        acciones_query += " GROUP BY accion ORDER BY cantidad DESC"
+        
+        acciones_result = db.execute(text(acciones_query), params).fetchall()
+        acciones_por_tipo = [dict(row._mapping) for row in acciones_result]
+        
+        return EstadisticasAuditoria(
+            total_cambios=result.total_cambios if result else 0,
+            usuarios_activos=result.usuarios_activos if result else 0,
+            empresas_afectadas=result.empresas_afectadas if result else 0,
+            acciones_por_tipo=acciones_por_tipo,
+            periodo_dias=dias_atras,
+            tabla_consultada=tabla_afectada
+        )
     
     @staticmethod
     def obtener_actividad_reciente(
@@ -186,31 +219,44 @@ class AuditoriaService:
         limite: int = 10
     ) -> List[Dict[str, Any]]:
         """Obtener actividad más reciente para dashboards"""
-        
+    
         query = """
         SELECT 
-            tabla_afectada,
-            accion,
-            usuario_nombre,
-            empresa_nombre,
-            motivo,
-            fecha_cambio,
-            tipo_cambio
-        FROM auditoria_detalle 
+            a.auditoria_id,
+            a.tabla_afectada,
+            a.registro_id,
+            a.accion,
+            a.usuario_id,
+            u.nombre as usuario_nombre,
+            u.email as usuario_email,
+            a.empresa_id,
+            e.razon_social as empresa_nombre,
+            a.motivo,
+            a.fecha_cambio,
+            CASE 
+                WHEN a.accion LIKE '%SOFT_DELETE%' THEN 'eliminacion'
+                WHEN a.accion LIKE '%INSERT%' OR a.accion LIKE '%CREAR%' THEN 'creacion'
+                WHEN a.accion LIKE '%UPDATE%' OR a.accion LIKE '%MODIFICAR%' THEN 'modificacion'
+                WHEN a.accion LIKE '%LOGIN%' THEN 'acceso'
+                ELSE 'otro'
+            END as tipo_cambio
+        FROM auditoria_sistema a
+        LEFT JOIN usuario u ON a.usuario_id = u.usuario_id
+        LEFT JOIN empresa e ON a.empresa_id = e.empresa_id
         WHERE 1=1
         """
         params = {}
-        
+    
         if usuario_id:
-            query += " AND usuario_id = :usuario_id"
+            query += " AND a.usuario_id = :usuario_id"
             params['usuario_id'] = usuario_id
-            
+        
         if empresa_id:
-            query += " AND empresa_id = :empresa_id"
+            query += " AND a.empresa_id = :empresa_id"
             params['empresa_id'] = empresa_id
-        
-        query += " ORDER BY fecha_cambio DESC LIMIT :limite"
+    
+        query += " ORDER BY a.fecha_cambio DESC LIMIT :limite"
         params['limite'] = limite
-        
+    
         result = db.execute(text(query), params).fetchall()
         return [dict(row._mapping) for row in result]

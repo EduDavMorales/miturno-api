@@ -31,5 +31,5 @@ RUN chmod +x start.sh
 # Exponer puerto
 EXPOSE 8000
 
-# Ejecutar script que corre migraciones y luego inicia el servidor
-CMD ["./start.sh"]
+# Uvicorn directo (migraciones se ejecutan con release_command en fly.toml)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

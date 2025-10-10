@@ -79,27 +79,26 @@ async def register(
         db.add(new_user)
         db.flush()  # Obtener ID sin hacer commit completo
         
-        # Determinar rol según tipo_usuario
+       # Determinar rol según tipo_usuario
         rol_id = None
         if registro_data.tipo_usuario == TipoUsuario.CLIENTE:
-            rol_id = 1  # Rol Cliente
+            rol_id = 6  # ✅ Rol Cliente correcto
         elif registro_data.tipo_usuario == TipoUsuario.EMPRESA:
-            rol_id = 4  # Rol Dueño Empresa
+            rol_id = 4  # ✅ Rol Empresa (Dueño)
         else:
-            # Por defecto, asignar Cliente si hay algún valor inesperado
-            rol_id = 1
-        
+            # Por defecto, asignar Cliente
+            rol_id = 6
+
         # Crear relación usuario-rol
         usuario_rol = UsuarioRol(
             usuario_id=new_user.usuario_id,
             rol_id=rol_id,
-            empresa_id=None,  # Para clientes es NULL, para empresas se asignará después
+            empresa_id=None,  # Para clientes es NULL
             asignado_por=None,  # Auto-asignado durante registro
-            fecha_asignado=datetime.utcnow(),
-            fecha_vencimiento=None,  # Sin vencimiento para roles principales
-            activo=True,
-            motivo_inactivacion=None
-        )
+            fecha_asignado=datetime.utcnow(),  # ✅ Nombre correcto
+            fecha_vencimiento=None,
+            activo=True
+)
         
         db.add(usuario_rol)
         db.commit()  # Commit de toda la transacción

@@ -126,3 +126,19 @@ class UpdateCoordinatesResponse(BaseModel):
     coordenadas_nuevas: Optional[GeoLocation] = None
     actualizado: bool
     error: Optional[str] = None
+    
+class ActualizarCoordenadasRequest(BaseModel):
+    """Request para actualizar coordenadas de empresa"""
+    latitud: Optional[float] = Field(None, ge=-90, le=90, description="Latitud")
+    longitud: Optional[float] = Field(None, ge=-180, le=180, description="Longitud")
+    recalcular_desde_direccion: bool = Field(False, description="Si es True, geocodifica desde la dirección asociada")
+    corregido_manualmente: bool = Field(False, description="Si es True, indica que el usuario ajustó desde el mapa")
+
+class ActualizarCoordenadasResponse(BaseModel):
+    """Response de actualización de coordenadas"""
+    success: bool
+    message: str
+    empresa_id: int
+    coordenadas_anteriores: Optional[dict] = None
+    coordenadas_nuevas: dict
+    metodo: str  # 'manual' o 'geocodificacion'

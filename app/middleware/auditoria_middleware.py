@@ -1,4 +1,5 @@
 from fastapi import Request
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
 

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, Query, Request, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import Optional, List
 from datetime import datetime, timedelta
-
 from app.database import get_db
 from app.core.security import get_current_user
 from app.models.user import Usuario
@@ -364,72 +364,59 @@ async def obtener_tablas_auditadas(
     }
 )
 async def obtener_reporte_soft_deletes(
-    dias: int = Query(
-        7, 
-        ge=1, 
-        le=90, 
-        description="Días hacia atrás (máximo 90)"
-    ),
-    tabla_afectada: Optional[str] = Query(
-        None,
-        regex="^[a-zA-Z_]+$", 
-        description="Filtrar por tabla específica"
-    ),
+    dias: int = Query(7, ge=1, le=90, description="Días hacia atrás (máximo 90)"),
+    tabla_afectada: Optional[str] = Query(None, regex="^[a-zA-Z_]+$", description="Filtrar por tabla específica"),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
     """Reporte especializado para soft deletes"""
-    try:
-        query = """
-        SELECT 
-            tabla_afectada,
-            accion,
-            COUNT(*) as cantidad,
-            COUNT(DISTINCT usuario_id) as usuarios_involucrados,
-            COUNT(DISTINCT DATE(fecha_cambio)) as dias_con_actividad,
-            MIN(fecha_cambio) as primer_soft_delete,
-            MAX(fecha_cambio) as ultimo_soft_delete
-        FROM auditoria_detalle 
-        WHERE (accion LIKE '%SOFT_DELETE%' 
-               OR accion LIKE '%CANCELAR%' 
-               OR accion LIKE '%DESACTIVAR%'
-               OR accion LIKE '%INACTIVAR%')
-          AND fecha_cambio >= DATE_SUB(NOW(), INTERVAL :dias DAY)
-        """
-        params = {'dias': dias}
-        
-        if tabla_afectada:
-            query += " AND tabla_afectada = :tabla_afectada"
-            params['tabla_afectada'] = tabla_afectada
-        
-        query += " GROUP BY tabla_afectada, accion ORDER BY cantidad DESC"
-        
-        result = db.execute(text(query), params).fetchall()
-        
-        soft_deletes = [dict(row._mapping) for row in result]
-        total_soft_deletes = sum(item['cantidad'] for item in soft_deletes)
-        
-        return {
-            'periodo_dias': dias,
-            'tabla_filtrada': tabla_afectada,
-            'total_soft_deletes': total_soft_deletes,
-            'detalle_por_accion': soft_deletes,
-            'resumen': {
-                'tablas_afectadas': len(set(item['tabla_afectada'] for item in soft_deletes)),
-                'tipos_accion': len(soft_deletes),
-                'promedio_diario': round(total_soft_deletes / max(dias, 1), 2)
-            }
+    
+    query = """
+    SELECT 
+        tabla_afectada,
+        accion,
+        COUNT(*) as cantidad,
+        COUNT(DISTINCT usuario_id) as usuarios_involucrados,
+        COUNT(DISTINCT DATE(fecha_cambio)) as dias_con_actividad,
+        DATE_FORMAT(MIN(fecha_cambio), '%Y-%m-%d %H:%i:%s') as primer_soft_delete,
+        DATE_FORMAT(MAX(fecha_cambio), '%Y-%m-%d %H:%i:%s') as ultimo_soft_delete
+    FROM auditoria_sistema 
+    WHERE (accion LIKE :pattern1 
+           OR accion LIKE :pattern2 
+           OR accion LIKE :pattern3
+           OR accion LIKE :pattern4)
+      AND fecha_cambio >= DATE_SUB(NOW(), INTERVAL :dias DAY)
+    """
+    params = {
+        'pattern1': '%SOFT_DELETE%',
+        'pattern2': '%CANCELAR%',
+        'pattern3': '%DESACTIVAR%',
+        'pattern4': '%INACTIVAR%',
+        'dias': dias
+    }
+    
+    if tabla_afectada:
+        query += " AND tabla_afectada = :tabla_afectada"
+        params['tabla_afectada'] = tabla_afectada
+    
+    query += " GROUP BY tabla_afectada, accion ORDER BY cantidad DESC"
+    
+    result = db.execute(text(query), params).fetchall()
+    
+    soft_deletes = [dict(row._mapping) for row in result]
+    total_soft_deletes = sum(item['cantidad'] for item in soft_deletes)
+    
+    return {
+        'periodo_dias': dias,
+        'tabla_filtrada': tabla_afectada,
+        'total_soft_deletes': total_soft_deletes,
+        'detalle_por_accion': soft_deletes,
+        'resumen': {
+            'tablas_afectadas': len(set(item['tabla_afectada'] for item in soft_deletes)),
+            'tipos_accion': len(soft_deletes),
+            'promedio_diario': round(total_soft_deletes / max(dias, 1), 2) if total_soft_deletes > 0 else 0
         }
-        
-    except Exception as e:
-        return {
-            'error': 'No se pudo generar el reporte',
-            'periodo_dias': dias,
-            'tabla_filtrada': tabla_afectada,
-            'total_soft_deletes': 0,
-            'detalle_por_accion': [],
-            'resumen': {}
-        }
+    }
 
 # =============================================
 # EJEMPLO DE USO EN OTROS SERVICIOS
