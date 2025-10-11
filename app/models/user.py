@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Enum, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Enum, DateTime, Boolean, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -14,6 +14,12 @@ class Usuario(Base):
     nombre = Column(String(100), nullable=False)
     telefono = Column(String(15), nullable=False)
     tipo_usuario = Column(Enum(TipoUsuario), nullable=False, index=True)
+    
+    # Campos de estado activo
+    activo = Column(Boolean, default=True, nullable=False, index=True)
+    motivo_desactivacion = Column(Text, nullable=True)
+    fecha_desactivacion = Column(DateTime, nullable=True)
+    
     fecha_creacion = Column(DateTime, server_default=func.now(), nullable=False)
     fecha_actualizacion = Column(DateTime, server_default=func.now(), onupdate=func.now())
     

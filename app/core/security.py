@@ -20,8 +20,8 @@ auth_logger = get_logger("miturno.auth")
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# OAuth2 scheme
-oauth2_scheme = HTTPBearer()
+# OAuth2 scheme - auto_error=False para manejar manualmente el error 401
+oauth2_scheme = HTTPBearer(auto_error=False)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verificar password con hash"""
@@ -94,15 +94,23 @@ def verify_token(token: str) -> TokenData:
         raise credentials_exception
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(oauth2_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ) -> Usuario:
     """
     Obtener usuario actual desde JWT token
     Para usar como dependencia en endpoints protegidos
+    
+    Retorna:
+    - Usuario si el token es válido
+    
+    Errores:
+    - 401: Sin token o token inválido (no autenticado)
+    - 500: Error de base de datos
     """
     auth_logger.debug("Iniciando get_current_user")
     
+    # Excepción estándar para problemas de autenticación
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -110,6 +118,15 @@ def get_current_user(
     )
     
     try:
+        # ✅ NUEVO: Verificar si hay credenciales (token presente)
+        if credentials is None:
+            auth_logger.warning("Intento de acceso sin token de autenticación")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No se proporcionó token de autenticación",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         # Verificar token
         token_data = verify_token(credentials.credentials)
         auth_logger.debug(f"Token verificado, buscando usuario ID: {token_data.usuario_id}")
@@ -120,6 +137,15 @@ def get_current_user(
         if user is None:
             auth_logger.warning(f"Usuario {token_data.usuario_id} no encontrado en BD")
             raise credentials_exception
+        
+        # Verificar que el usuario esté activo
+        if not user.activo:
+            auth_logger.warning(f"Intento de acceso con usuario inactivo: {user.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Usuario inactivo",
+                headers={"WWW-Authenticate": "Bearer"},
+        )
             
         auth_logger.info(f"Usuario autenticado exitosamente: {user.email}")
         return user
