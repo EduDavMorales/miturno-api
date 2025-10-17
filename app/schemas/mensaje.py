@@ -26,6 +26,9 @@ class MensajeBase(BaseModel):
 class MensajeCreate(MensajeBase):
     conversacion_id: int
 
+class MensajeEnviar(BaseModel):
+    contenido: str = Field(..., min_length=1, max_length=1000, description="Contenido del mensaje")
+    
 class MensajeResponse(MensajeBase):
     mensaje_id: int
     conversacion_id: int
