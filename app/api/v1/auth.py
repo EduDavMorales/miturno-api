@@ -58,7 +58,7 @@ async def register(
     Registro de nuevo usuario (cliente o empresa)
     """
     try:
-        # Verificar si email ya existe
+        # 1. Verificar si email ya existe
         existing_user = db.query(Usuario).filter(Usuario.email == registro_data.email).first()
         if existing_user:
             raise HTTPException(
@@ -66,38 +66,15 @@ async def register(
                 detail="Email already registered"
             )
         
-        # Crear nuevo usuario
-        hashed_password = get_password_hash(registro_data.password)
-        
-        new_user = Usuario(
-            email=registro_data.email,
-            password=hashed_password,
-            nombre=registro_data.nombre,
-            telefono=registro_data.telefono,
-            tipo_usuario=registro_data.tipo_usuario
-        )
-        
-        # Agregar usuario y obtener ID
-        db.add(new_user)
-        db.flush()  # Obtener ID sin hacer commit completo
-        
-        # Determinar rol según tipo_usuario
-        rol_id = None
-        if registro_data.tipo_usuario == TipoUsuario.CLIENTE:
-            rol_id = 6  # ✅ Rol Cliente
-            # NO crear registro adicional - tabla cliente no existe
-            
-        elif registro_data.tipo_usuario == TipoUsuario.EMPRESA:
-            rol_id = 4  # ✅ Rol Empresa
-    
-            # ✅ Validar que empresa envió categoria_id
+        # 2. Si es empresa, validar categoría ANTES de crear usuario
+        if registro_data.tipo_usuario == TipoUsuario.EMPRESA:
             if not registro_data.categoria_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="categoria_id es requerido para registro de empresas"
                 )
     
-            # ✅ Verificar que la categoría existe
+            # Verificar que la categoría existe
             categoria = db.query(Categoria).filter(
                 Categoria.categoria_id == registro_data.categoria_id,
                 Categoria.activa == True
@@ -108,8 +85,30 @@ async def register(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Categoría con ID {registro_data.categoria_id} no existe o no está activa"
                 )
+        
+        # 3. Crear nuevo usuario (SIN flush todavía)
+        hashed_password = get_password_hash(registro_data.password)
+        
+        new_user = Usuario(
+            email=registro_data.email,
+            password=hashed_password,
+            nombre=registro_data.nombre,
+            telefono=registro_data.telefono,
+            tipo_usuario=registro_data.tipo_usuario
+        )
+        
+        db.add(new_user)
+        db.flush()  # Ahora sí, flush DESPUÉS de validaciones
+        
+        # 4. Determinar rol según tipo_usuario
+        rol_id = None
+        if registro_data.tipo_usuario == TipoUsuario.CLIENTE:
+            rol_id = 6  # Rol Cliente
+            
+        elif registro_data.tipo_usuario == TipoUsuario.EMPRESA:
+            rol_id = 4  # Rol Empresa
     
-            # ✅ Crear registro en tabla empresa
+            # Crear registro en tabla empresa
             nueva_empresa = Empresa(
                 usuario_id=new_user.usuario_id,
                 categoria_id=registro_data.categoria_id,
@@ -122,7 +121,7 @@ async def register(
             # Por defecto, asignar Cliente
             rol_id = 6
 
-        # Crear relación usuario-rol
+        # 5. Crear relación usuario-rol
         usuario_rol = UsuarioRol(
             usuario_id=new_user.usuario_id,
             rol_id=rol_id,
