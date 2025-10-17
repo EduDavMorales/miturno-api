@@ -15,7 +15,7 @@ from app.models.mensaje import Conversacion, Mensaje, RemitenteEnum
 from app.models.user import Usuario
 from app.api.deps import get_current_user
 
-router = APIRouter(prefix="/conversaciones", tags=["💬 Conversaciones"])
+router = APIRouter(prefix="/conversaciones", tags=[" 💬  Conversaciones"])
 
 
 @router.post("", response_model=ConversacionResponse, status_code=status.HTTP_201_CREATED)
@@ -145,19 +145,20 @@ def enviar_mensaje(
     empresa = db.query(Empresa).filter(
         Empresa.usuario_id == current_user.usuario_id
     ).first()
-    
-    if conversacion.cliente_id == current_user.usuario_id:
-        remitente_tipo = RemitenteEnum.cliente
-        remitente_id = current_user.usuario_id
-    elif empresa and conversacion.empresa_id == empresa.empresa_id:
+
+    # ? VERIFICAR EMPRESA PRIMERO
+    if empresa and conversacion.empresa_id == empresa.empresa_id:
         remitente_tipo = RemitenteEnum.empresa
         remitente_id = empresa.empresa_id
+    elif conversacion.cliente_id == current_user.usuario_id:
+        remitente_tipo = RemitenteEnum.cliente
+        remitente_id = current_user.usuario_id
     else:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No tienes acceso a esta conversación"
         )
-    
+
     # Crear mensaje
     nuevo_mensaje = Mensaje(
         conversacion_id=conversacion_id,
