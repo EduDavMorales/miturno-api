@@ -35,6 +35,7 @@ def consultar_disponibilidad(
     empresa_id: int,
     fecha: str = Query(..., description="Fecha en formato YYYY-MM-DD"),
     servicio_id: Optional[int] = Query(None, description="ID del servicio específico"),
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
