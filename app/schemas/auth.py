@@ -28,6 +28,7 @@ class RegistroRequest(BaseModel):
     nombre: str = Field(..., min_length=2, max_length=100)
     telefono: str = Field(..., min_length=10, max_length=15)
     tipo_usuario: TipoUsuario
+    categoria_id: Optional[int] = None
 
 
 class RegistroResponse(BaseModel):

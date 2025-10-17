@@ -18,4 +18,4 @@ class Servicio(Base):
     
     # Relaciones
     empresa = relationship("Empresa", back_populates="servicios")
-    turnos = relationship("Turno", back_populates="servicio")
+    turnos = relationship("Turno", back_populates="servicio") 

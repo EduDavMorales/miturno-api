@@ -26,4 +26,4 @@ class Usuario(Base):
     # Relaciones
     empresa = relationship("Empresa", back_populates="usuario", uselist=False)
     turnos_como_cliente = relationship("Turno", back_populates="cliente", foreign_keys="Turno.cliente_id")
-    mensajes_enviados = relationship("Mensaje", back_populates="emisor")
+    

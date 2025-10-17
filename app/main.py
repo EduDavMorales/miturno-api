@@ -1,6 +1,7 @@
 # app/main.py
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
@@ -27,6 +28,43 @@ app = FastAPI(
     description="API para la gestión de turnos entre empresas y clientes",
     docs_url="/docs",
     redoc_url="/redoc"
+)
+
+# Configurar esquema de seguridad JWT para Swagger UI
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    
+    # Usar get_openapi en lugar de app.openapi() para evitar recursión
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+    
+    # Agregar esquema de seguridad Bearer JWT
+    openapi_schema["components"]["securitySchemes"] = {
+        "HTTPBearer": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Ingrese el token JWT sin el prefijo 'Bearer'"
+        }
+    }
+    
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.backend_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Configurar CORS

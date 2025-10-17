@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models.user import Usuario, TipoUsuario
 from app.models.rol import Rol, UsuarioRol
 from app.models.auditoria import AuditoriaSistema
-from app.auth.permissions import PermissionService  # ← NUEVO
+from app.auth.permissions import PermissionService  
 from app.schemas.empresa import EmpresasListResponse, EmpresaCreate, EmpresaResponse
 from app.schemas.equipo import EquipoListResponse, EquipoMiembro, InvitacionCreate, InvitacionResponse, CambiarRolRequest, CambioRolResponse, DesactivarMiembroRequest, DesactivacionResponse
 from app.services.empresa_service import EmpresaService
@@ -32,6 +32,7 @@ def get_empresas(
     activa: bool = Query(True, description="Solo empresas activas"),
     skip: int = Query(0, ge=0, description="Numero de registros a omitir"),
     limit: int = Query(100, ge=1, le=100, description="Numero máximo de registros"),
+    current_user: Usuario = Depends(get_current_user),  
     db: Session = Depends(get_db)
 ):
     try:
@@ -64,6 +65,7 @@ def get_empresas(
 )
 def get_empresa(
     empresa_id: int,
+    current_user: Usuario = Depends(get_current_user),  
     db: Session = Depends(get_db)
 ):
     try:
@@ -96,8 +98,15 @@ def get_empresa(
 )
 def create_empresa(
     empresa: EmpresaCreate,
+    current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    # Validar que es tipo EMPRESA
+    if current_user.tipo_usuario.value != "EMPRESA": 
+        raise HTTPException(
+            status_code=403,
+            detail="Solo usuarios tipo EMPRESA pueden crear empresas"
+        )
     try:
         db_empresa = EmpresaService.create_empresa_complete(db, empresa)
         
@@ -122,8 +131,15 @@ def create_empresa(
 )
 def get_empresa_by_usuario(
     usuario_id: int,
+    current_user: Usuario = Depends(get_current_user),  
     db: Session = Depends(get_db)
 ):
+    # Validar que solo puede ver su propia empresa o es admin
+    if current_user.usuario_id != usuario_id and current_user.tipo_usuario.value not in ["ADMIN", "SUPERADMIN"]:  
+        raise HTTPException(
+            status_code=403,
+            detail="Solo puedes ver tu propia empresa"
+        )
     try:
         usuario = db.query(Usuario).filter(Usuario.usuario_id == usuario_id).first()
         if not usuario:
