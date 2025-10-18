@@ -4,6 +4,7 @@ from .empresa import Empresa
 from .turno import Turno, EstadoTurno
 from .mensaje import Mensaje
 from .servicio import Servicio
+from .calificacion import Calificacion
 from .horario_empresa import HorarioEmpresa
 from .bloqueo_horario import BloqueoHorario
 from .rol import Rol, Permiso, RolPermiso, UsuarioRol, AutorizacionSoporte
@@ -17,6 +18,7 @@ __all__ = [
     "Turno", "EstadoTurno",
     "Mensaje",
     "Servicio",
+    "Calificacion",
     "HorarioEmpresa",
     "BloqueoHorario",
     "Rol", 
@@ -24,6 +26,6 @@ __all__ = [
     "RolPermiso", 
     "UsuarioRol", 
     "AutorizacionSoporte",
-    "Direccion"  
+    "Direccion",
     "AuditoriaDetalle"  
 ]
