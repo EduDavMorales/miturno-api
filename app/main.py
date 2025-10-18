@@ -5,7 +5,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
-from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones
+from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones, servicios
 from app.routers import auditoria, geo_test
 from app.database import engine
 from app.models import user  
@@ -92,6 +92,7 @@ async def shutdown_event():
 # Incluir routers
 app.include_router(auth.router, prefix="/api/auth", tags=[" 🔐 Autenticación"])
 app.include_router(empresas.router, prefix="/api/v1", tags=[" 🏢 Empresas"])
+app.include_router(servicios.router, prefix="/api/v1")
 app.include_router(categorias.router, prefix="/api/v1", tags=[" 📂 Categorías"])
 app.include_router(turnos.router, prefix="/api/v1", tags=[" 📅 Turnos"])
 app.include_router(test_roles.router, prefix="/api/v1/test", tags=[" ⚙️ Test Roles"])
