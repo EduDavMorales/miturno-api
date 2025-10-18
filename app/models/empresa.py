@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, Text, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, Text, Boolean, DateTime, Numeric
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -42,3 +42,10 @@ class Empresa(Base):
     
     # NUEVA RELACIÓN agregada durante normalización
     direccion = relationship("Direccion", back_populates="empresas")
+    
+    # Nuevas columnas para rating
+    rating_promedio = Column(Numeric(3, 2), nullable=True)
+    total_calificaciones = Column(Integer, nullable=False, server_default="0")
+
+    # Relación con calificaciones
+    calificaciones = relationship("Calificacion", back_populates="empresa", cascade="all, delete-orphan")

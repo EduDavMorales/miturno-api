@@ -5,7 +5,7 @@ from fastapi.openapi.utils import get_openapi
 
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
-from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones
+from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones
 from app.routers import auditoria, geo_test
 from app.database import engine
 from app.models import user  
@@ -99,6 +99,7 @@ app.include_router(auditoria.router)
 app.include_router(geo_test.router)
 app.include_router(geolocalizacion.router, prefix="/api/v1", tags=["📍 Geolocalización"])
 app.include_router(conversaciones.router, prefix="/api/v1")
+app.include_router(calificaciones.router, prefix="/api/v1")
 
 app_logger.info("Todos los routers registrados correctamente")
 

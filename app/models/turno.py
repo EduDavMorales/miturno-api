@@ -38,4 +38,4 @@ class Turno(Base):
     empresa = relationship("Empresa", back_populates="turnos")
     cliente = relationship("Usuario", back_populates="turnos_como_cliente", foreign_keys=[cliente_id])
     servicio = relationship("Servicio", back_populates="turnos")
-    
+    calificacion = relationship("Calificacion", back_populates="turno", uselist=False, cascade="all, delete-orphan")
