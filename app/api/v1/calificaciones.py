@@ -136,7 +136,7 @@ def crear_calificacion(
         respuesta_empresa=nueva_calificacion.respuesta_empresa,
         fecha_calificacion=nueva_calificacion.fecha_calificacion,
         fecha_respuesta=nueva_calificacion.fecha_respuesta,
-        cliente_nombre=f"{current_user.nombre} {current_user.apellido}"
+        cliente_nombre=f"{current_user.nombre} {current_user.apellido or ''}".strip()
     )
     
     return CalificacionCreateResponse(
@@ -192,7 +192,7 @@ def listar_calificaciones_empresa(
             respuesta_empresa=calificacion.respuesta_empresa,
             fecha_calificacion=calificacion.fecha_calificacion,
             fecha_respuesta=calificacion.fecha_respuesta,
-            cliente_nombre=f"{nombre} {apellido}"
+            cliente_nombre=f"{nombre} {apellido or ''}".strip()
         ))
     
     return result
@@ -266,7 +266,7 @@ def responder_calificacion(
         respuesta_empresa=calificacion.respuesta_empresa,
         fecha_calificacion=calificacion.fecha_calificacion,
         fecha_respuesta=calificacion.fecha_respuesta,
-        cliente_nombre=f"{cliente.nombre} {cliente.apellido}" if cliente else "Cliente"
+        cliente_nombre=f"{cliente.nombre} {cliente.apellido or ''}".strip() if cliente else "Cliente"
     )
 
 

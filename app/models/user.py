@@ -12,6 +12,7 @@ class Usuario(Base):
     email = Column(String(100), unique=True, nullable=False, index=True)
     password = Column(String(255), nullable=False)
     nombre = Column(String(100), nullable=False)
+    apellido = Column(String(100), nullable=True)
     telefono = Column(String(15), nullable=False)
     tipo_usuario = Column(Enum(TipoUsuario), nullable=False, index=True)
     

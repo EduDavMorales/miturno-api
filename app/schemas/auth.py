@@ -26,6 +26,7 @@ class RegistroRequest(BaseModel):
     email: str
     password: str = Field(..., min_length=8, max_length=50)
     nombre: str = Field(..., min_length=2, max_length=100)
+    apellido: Optional[str] = Field(None, max_length=100)
     telefono: str = Field(..., min_length=10, max_length=15)
     tipo_usuario: TipoUsuario
     categoria_id: Optional[int] = None
@@ -44,6 +45,7 @@ class UsuarioResponse(BaseModel):
     usuario_id: int
     email: str
     nombre: str
+    apellido: Optional[str] = None
     telefono: str
     tipo_usuario: TipoUsuario
 

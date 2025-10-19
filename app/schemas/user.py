@@ -8,6 +8,7 @@ from app.models.user import TipoUsuario
 class UsuarioBase(BaseModel):
     email: EmailStr
     nombre: str
+    apellido: Optional[str] = None 
     telefono: str
     tipo_usuario: TipoUsuario
 
@@ -35,6 +36,7 @@ class UsuarioCreate(UsuarioBase):
 class UsuarioUpdate(BaseModel):
     email: Optional[EmailStr] = None
     nombre: Optional[str] = None
+    apellido: Optional[str] = None
     telefono: Optional[str] = None
     
     @validator('telefono')

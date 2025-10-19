@@ -93,6 +93,7 @@ async def register(
             email=registro_data.email,
             password=hashed_password,
             nombre=registro_data.nombre,
+            apellido=registro_data.apellido,
             telefono=registro_data.telefono,
             tipo_usuario=registro_data.tipo_usuario
         )
