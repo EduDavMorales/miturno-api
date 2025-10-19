@@ -215,6 +215,62 @@ Marca un mensaje como leído.
 
 ---
 
+---
+
+### **6. GET `/api/v1/conversaciones/no-leidos/total`**
+
+Obtiene el total de mensajes no leídos del usuario actual.
+
+**Sin parámetros requeridos** - usa el token para identificar al usuario.
+
+**Response (200 OK):**
+```json
+{
+  "total_no_leidos": 3,
+  "tipo_usuario": "CLIENTE"
+}
+```
+
+**Lógica:**
+- Si el usuario es **CLIENTE**: cuenta mensajes no leídos enviados por empresas
+- Si el usuario es **EMPRESA**: cuenta mensajes no leídos enviados por clientes
+- Solo cuenta mensajes activos (deleted_at = NULL)
+
+**Uso en Frontend:**
+```javascript
+// Obtener contador para badge de notificaciones
+async function obtenerContadorNoLeidos() {
+  const token = localStorage.getItem('token');
+  
+  const response = await fetch(
+    `${API_URL}/api/v1/conversaciones/no-leidos/total`,
+    {
+      headers: { 'Authorization': `Bearer ${token}` }
+    }
+  );
+  
+  const data = await response.json();
+  
+  // Actualizar badge en la UI
+  const badge = document.getElementById('notif-badge');
+  if (data.total_no_leidos > 0) {
+    badge.textContent = data.total_no_leidos;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Llamar cada 30 segundos para actualizar el contador
+setInterval(obtenerContadorNoLeidos, 30000);
+```
+
+**Errores:**
+- `401`: No autenticado
+- `500`: Error al obtener contador
+
+---
+
 ## 🔒 **Autenticación**
 
 Todos los endpoints requieren autenticación con Bearer token:

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -13,9 +14,11 @@ from app.schemas.mensaje import (
 )
 from app.models.mensaje import Conversacion, Mensaje, RemitenteEnum
 from app.models.user import Usuario
+from app.models.empresa import Empresa
 from app.api.deps import get_current_user
+from app.enums import TipoUsuario
 
-router = APIRouter(prefix="/conversaciones", tags=[" 💬  Conversaciones"])
+router = APIRouter(prefix="/conversaciones", tags=["💬 Conversaciones"])
 
 
 @router.post("", response_model=ConversacionResponse, status_code=status.HTTP_201_CREATED)
@@ -59,7 +62,6 @@ def listar_conversaciones(
         ).all()
     else:
         # Buscar la empresa del usuario
-        from app.models.empresa import Empresa
         empresa = db.query(Empresa).filter(
             Empresa.usuario_id == current_user.usuario_id
         ).first()
@@ -93,7 +95,6 @@ def obtener_conversacion(
         )
     
     # Verificar que el usuario tenga acceso a esta conversación
-    from app.models.empresa import Empresa
     empresa = db.query(Empresa).filter(
         Empresa.usuario_id == current_user.usuario_id
     ).first()
@@ -141,7 +142,6 @@ def enviar_mensaje(
         )
     
     # Determinar tipo de remitente
-    from app.models.empresa import Empresa
     empresa = db.query(Empresa).filter(
         Empresa.usuario_id == current_user.usuario_id
     ).first()
@@ -203,7 +203,6 @@ def marcar_mensaje_leido(
         Conversacion.conversacion_id == mensaje.conversacion_id
     ).first()
     
-    from app.models.empresa import Empresa
     empresa = db.query(Empresa).filter(
         Empresa.usuario_id == current_user.usuario_id
     ).first()
@@ -223,3 +222,69 @@ def marcar_mensaje_leido(
     db.refresh(mensaje)
     
     return mensaje
+    
+@router.get("/conversaciones/no-leidos/total", response_model=dict)
+async def obtener_total_mensajes_no_leidos(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Obtiene el total de mensajes no leídos para el usuario actual.
+    útil para mostrar badge de notificaciones.
+    """
+    
+    total_no_leidos = 0
+    
+    try:
+        # Si es cliente
+        if current_user.tipo_usuario == TipoUsuario.CLIENTE:
+            # Obtener todas sus conversaciones
+            conversaciones = db.query(Conversacion).filter(
+                Conversacion.cliente_id == current_user.usuario_id
+            ).all()
+            
+            # Contar mensajes no leídos de empresas
+            for conv in conversaciones:
+                count = db.query(Mensaje).filter(
+                    Mensaje.conversacion_id == conv.conversacion_id,
+                    Mensaje.remitente_tipo == "empresa",
+                    Mensaje.leido == False,
+                    Mensaje.deleted_at == None
+                ).count()
+                total_no_leidos += count
+        
+        # Si es empresa
+        else:
+            # Buscar la empresa asociada al usuario
+            empresa = db.query(Empresa).filter(
+                Empresa.usuario_id == current_user.usuario_id
+            ).first()
+            
+            if not empresa:
+                return {"total_no_leidos": 0}
+            
+            # Obtener todas las conversaciones de la empresa
+            conversaciones = db.query(Conversacion).filter(
+                Conversacion.empresa_id == empresa.empresa_id
+            ).all()
+            
+            # Contar mensajes no leídos de clientes
+            for conv in conversaciones:
+                count = db.query(Mensaje).filter(
+                    Mensaje.conversacion_id == conv.conversacion_id,
+                    Mensaje.remitente_tipo == "cliente",
+                    Mensaje.leido == False,
+                    Mensaje.deleted_at == None
+                ).count()
+                total_no_leidos += count
+        
+        return {
+            "total_no_leidos": total_no_leidos,
+            "tipo_usuario": current_user.tipo_usuario.value
+        }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error al obtener mensajes no leídos: {str(e)}"
+        )
