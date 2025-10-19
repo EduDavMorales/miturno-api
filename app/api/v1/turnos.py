@@ -7,6 +7,9 @@ from typing import List, Optional
 from app.database import get_db
 from app.core.security import get_current_user
 from app.models.user import Usuario
+from app.models.turno import Turno
+from app.models.empresa import Empresa
+from app.enums import TipoUsuario, EstadoTurno
 from app.services.turno_service import TurnoService
 from app.schemas.turno import (
     # Schemas originales (mantener compatibilidad)
@@ -156,6 +159,73 @@ def cancelar_turno_usuario(
     service = TurnoService(db)
     return service.cancelar_turno(turno_id, current_user.usuario_id, motivo)
 
+@router.put("/{turno_id}/completar", response_model=TurnoResponse)
+def completar_turno(
+    turno_id: int,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user)
+):
+    """
+    Marca un turno como COMPLETADO.
+    
+    **Restricciones:**
+    - Solo la empresa puede completar turnos
+    - El turno debe estar en estado PENDIENTE o CONFIRMADO
+    - Solo se puede completar después de la fecha/hora del turno
+    """
+    # Verificar que sea una empresa
+    if current_user.tipo_usuario != TipoUsuario.EMPRESA.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo las empresas pueden completar turnos"
+        )
+    
+    # Obtener el turno
+    turno = db.query(Turno).filter(Turno.turno_id == turno_id).first()
+    if not turno:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Turno no encontrado"
+        )
+    
+    # Verificar que la empresa es dueña del turno
+    empresa = db.query(Empresa).filter(Empresa.usuario_id == current_user.usuario_id).first()
+    if not empresa or turno.empresa_id != empresa.empresa_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No tienes permiso para completar este turno"
+        )
+    
+    # Verificar estado actual
+    if turno.estado == EstadoTurno.CANCELADO.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede completar un turno cancelado"
+        )
+    
+    if turno.estado == EstadoTurno.COMPLETADO.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El turno ya está completado"
+        )
+    
+    # Verificar que ya pasó la fecha/hora del turno
+    from datetime import datetime, date, time
+    turno_datetime = datetime.combine(turno.fecha, turno.hora)
+    if datetime.now() < turno_datetime:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No se puede completar un turno que aún no ha ocurrido"
+        )
+    
+    # Marcar como completado
+    turno.estado = EstadoTurno.COMPLETADO.value
+    db.commit()
+    db.refresh(turno)
+    
+    # Construir respuesta
+    return construir_turno_response(turno, db)
+
 # =============================================
 # ENDPOINTS ORIGINALES (COMPATIBILIDAD)
 # Mantener estos endpoints para no romper código existente
@@ -217,3 +287,42 @@ def obtener_turno(
         raise HTTPException(status_code=403, detail="No tienes permiso para ver este turno")
     
     return turno
+    
+def construir_turno_response(turno, db: Session) -> TurnoResponse:
+    """Helper para construir TurnoResponse desde modelo Turno"""
+    from app.models.user import Usuario
+    from app.models.empresa import Empresa
+    from app.models.servicio import Servicio
+    
+    # Obtener datos relacionados
+    cliente = db.query(Usuario).filter(Usuario.usuario_id == turno.cliente_id).first()
+    empresa = db.query(Empresa).filter(Empresa.empresa_id == turno.empresa_id).first()
+    servicio = db.query(Servicio).filter(Servicio.servicio_id == turno.servicio_id).first() if turno.servicio_id else None
+    
+    from datetime import datetime, timedelta
+    
+    # Calcular hora fin
+    duracion = servicio.duracion_minutos if servicio else empresa.duracion_turno_minutos
+    hora_fin = (datetime.combine(turno.fecha, turno.hora) + timedelta(minutes=duracion)).time()
+    
+    return TurnoResponse(
+        turno_id=turno.turno_id,
+        empresa_id=turno.empresa_id,
+        empresa_nombre=empresa.razon_social if empresa else "",
+        cliente_id=turno.cliente_id,
+        cliente_nombre=f"{cliente.nombre}" if cliente else "",
+        servicio_id=turno.servicio_id,
+        servicio_nombre=servicio.nombre if servicio else None,
+        fecha=turno.fecha,
+        hora=turno.hora,
+        hora_fin=hora_fin,
+        estado=turno.estado,
+        notas_cliente=turno.notas_cliente,
+        notas_empresa=turno.notas_empresa,
+        precio=float(servicio.precio) if servicio else 0.0,
+        fecha_creacion=turno.fecha_creacion,
+        fecha_actualizacion=turno.fecha_actualizacion,
+        fecha_cancelacion=turno.fecha_cancelacion,
+        cancelado_por=turno.cancelado_por.value if turno.cancelado_por else None,
+        motivo_cancelacion=turno.motivo_cancelacion
+    )
