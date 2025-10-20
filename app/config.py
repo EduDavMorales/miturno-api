@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     # Google OAuth
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
+    google_redirect_uri: Optional[str] = None
     
     # CORS
     backend_cors_origins: list = ["http://localhost:3000",

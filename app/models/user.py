@@ -15,6 +15,7 @@ class Usuario(Base):
     apellido = Column(String(100), nullable=True)
     telefono = Column(String(15), nullable=False)
     tipo_usuario = Column(Enum(TipoUsuario), nullable=False, index=True)
+    google_id = Column(String(255), unique=True, nullable=True, index=True)
     
     # Campos de estado activo
     activo = Column(Boolean, default=True, nullable=False, index=True)

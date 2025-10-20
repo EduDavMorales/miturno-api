@@ -60,3 +60,32 @@ class TokenData(BaseModel):
     usuario_id: Optional[int] = None
     email: Optional[str] = None
     tipo_usuario: Optional[TipoUsuario] = None
+    
+# ============================================
+# GOOGLE OAUTH SCHEMAS (Flujo de autorización)
+# ============================================
+
+class GoogleAuthURL(BaseModel):
+    """Response con URL de autorización de Google"""
+    authorization_url: str = Field(..., description="URL para iniciar OAuth con Google")
+    message: str = "Redirige al usuario a esta URL"
+
+
+class GoogleCallbackRequest(BaseModel):
+    """Request del callback de Google"""
+    code: str = Field(..., description="Authorization code de Google")
+    state: Optional[str] = Field(None, description="State para validación")
+
+
+class GoogleAuthResponse(BaseModel):
+    """Response exitoso de Google OAuth"""
+    access_token: str
+    token_type: str = "bearer"
+    usuario: UsuarioResponse
+    es_nuevo_usuario: bool = Field(
+        ..., 
+        description="True si es primera vez que se loguea con Google"
+    )
+    
+    class Config:
+        from_attributes = True

@@ -12,6 +12,15 @@ from app.schemas.auth import (
 )
 from app.core.security import verify_password, get_password_hash, create_access_token
 from app.config import settings
+from typing import Optional
+from fastapi.responses import RedirectResponse
+import logging
+
+# Importar el servicio y schemas nuevos
+from app.services.google_oauth_service import google_oauth_service
+from app.schemas.auth import GoogleAuthURL, GoogleCallbackRequest, GoogleAuthResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -168,3 +177,115 @@ async def google_auth(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Google OAuth not implemented yet"
     )
+    
+# ============================================
+# GOOGLE OAUTH ENDPOINTS (Nuevo flujo)
+# ============================================
+
+@router.get("/google/login", response_model=GoogleAuthURL)
+async def google_login():
+    """
+    Inicia el flujo de autenticación con Google
+    
+    Returns:
+        URL de autorización de Google donde redirigir al usuario
+    """
+    try:
+        authorization_url = google_oauth_service.get_authorization_url()
+        
+        return GoogleAuthURL(
+            authorization_url=authorization_url,
+            message="Redirige al usuario a esta URL"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generando URL de Google: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error iniciando autenticación con Google"
+        )
+
+
+@router.get("/google/callback")
+async def google_callback(
+    code: str,
+    state: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Callback de Google OAuth - Procesa la respuesta de Google
+    
+    Args:
+        code: Authorization code de Google
+        state: Estado de validación opcional
+        db: Sesión de base de datos
+        
+    Returns:
+        Redirección al frontend con el token
+    """
+    try:
+        # Procesar el callback
+        result = await google_oauth_service.handle_google_callback(code, db)
+        
+        # URL del frontend (ajusta según tu configuración)
+        frontend_url = "http://localhost:3000"  # Cambiar por tu URL de frontend
+        
+        # Redirigir al frontend con el token y flag de nuevo usuario
+        redirect_url = (
+            f"{frontend_url}/auth/google/success"
+            f"?token={result['access_token']}"
+            f"&new_user={str(result['es_nuevo_usuario']).lower()}"
+        )
+        
+        return RedirectResponse(url=redirect_url)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error en callback de Google: {e}")
+        
+        # Redirigir al frontend con error
+        frontend_url = "http://localhost:3000"
+        error_url = f"{frontend_url}/auth/google/error?message={str(e)}"
+        return RedirectResponse(url=error_url)
+
+
+@router.post("/google/token", response_model=GoogleAuthResponse)
+async def google_auth_token(
+    request: GoogleCallbackRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Endpoint alternativo para recibir el código de Google (para SPAs)
+    
+    Args:
+        request: Request con el código de autorización
+        db: Sesión de base de datos
+        
+    Returns:
+        Token JWT y datos del usuario
+    """
+    try:
+        result = await google_oauth_service.handle_google_callback(
+            request.code, 
+            db
+        )
+        
+        # Convertir usuario a UsuarioResponse
+        usuario_data = UsuarioResponse.model_validate(result['usuario'])
+        
+        return GoogleAuthResponse(
+            access_token=result['access_token'],
+            token_type=result['token_type'],
+            usuario=usuario_data,
+            es_nuevo_usuario=result['es_nuevo_usuario']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error procesando token de Google: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error en autenticación: {str(e)}"
+        )

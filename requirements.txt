@@ -25,3 +25,8 @@ python-dotenv==1.0.0
 # HTTP client for geocoding
 httpx==0.25.2
 tenacity==8.2.3
+
+# Google OAuth
+google-auth==2.23.0
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
