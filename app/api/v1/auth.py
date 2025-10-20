@@ -169,14 +169,71 @@ async def google_auth(
     db: Session = Depends(get_db)
 ):
     """
-    Autenticación con Google OAuth
+    Autenticación con Google OAuth - Recibe id_token del frontend
     """
-    # TODO: Implementar verificación del id_token con Google
-    # Por ahora retornamos error hasta implementar Google OAuth
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Google OAuth not implemented yet"
-    )
+    try:
+        # Verificar el token con Google
+        user_info = await google_oauth_service.verify_google_token(google_data.token)
+        
+        # Buscar o crear usuario
+        user = db.query(Usuario).filter(Usuario.google_id == user_info['sub']).first()
+        
+        if not user:
+            # Buscar por email
+            user = db.query(Usuario).filter(Usuario.email == user_info['email']).first()
+            
+            if user:
+                # Usuario existe, vincular Google ID
+                user.google_id = user_info['sub']
+                user.picture_url = user_info.get('picture')
+            else:
+                # Crear nuevo usuario
+                user = Usuario(
+                    email=user_info['email'],
+                    nombre=user_info.get('given_name', ''),
+                    apellido=user_info.get('family_name', ''),
+                    google_id=user_info['sub'],
+                    picture_url=user_info.get('picture'),
+                    tipo_usuario=TipoUsuario.CLIENTE,
+                    password=None  # Sin password para OAuth
+                )
+                db.add(user)
+                db.flush()
+                
+                # Asignar rol Cliente
+                usuario_rol = UsuarioRol(
+                    usuario_id=user.usuario_id,
+                    rol_id=6,  # Cliente
+                    activo=True
+                )
+                db.add(usuario_rol)
+            
+            db.commit()
+            db.refresh(user)
+        
+        # Crear JWT token
+        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+        access_token = create_access_token(
+            data={
+                "sub": str(user.usuario_id),
+                "email": user.email,
+                "tipo_usuario": user.tipo_usuario.value
+            },
+            expires_delta=access_token_expires
+        )
+        
+        return LoginResponse(
+            message="Google login successful",
+            token=access_token,
+            usuario=UsuarioResponse.model_validate(user)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error en Google OAuth: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Google token: {str(e)}"
+        )
     
 # ============================================
 # GOOGLE OAUTH ENDPOINTS (Nuevo flujo)
