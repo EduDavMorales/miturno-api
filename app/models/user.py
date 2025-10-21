@@ -13,7 +13,7 @@ class Usuario(Base):
     password = Column(String(255), nullable=True)
     nombre = Column(String(100), nullable=False)
     apellido = Column(String(100), nullable=True)
-    telefono = Column(String(15), nullable=False)
+    telefono = Column(String(15), nullable=True)
     tipo_usuario = Column(Enum(TipoUsuario), nullable=False, index=True)
     
     google_id = Column(String(255), unique=True, nullable=True, index=True)
