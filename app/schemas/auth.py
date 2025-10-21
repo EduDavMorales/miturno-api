@@ -46,7 +46,7 @@ class UsuarioResponse(BaseModel):
     email: str
     nombre: str
     apellido: Optional[str] = None
-    telefono: str
+    telefono: Optional[str] = None
     tipo_usuario: TipoUsuario
 
 
