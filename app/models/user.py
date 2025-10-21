@@ -10,7 +10,7 @@ class Usuario(Base):
     
     usuario_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     email = Column(String(100), unique=True, nullable=False, index=True)
-    password = Column(String(255), nullable=False)
+    password = Column(String(255), nullable=True)
     nombre = Column(String(100), nullable=False)
     apellido = Column(String(100), nullable=True)
     telefono = Column(String(15), nullable=False)

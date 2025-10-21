@@ -35,12 +35,25 @@ async def login(
     # Buscar usuario por email
     user = db.query(Usuario).filter(Usuario.email == login_data.email).first()
     
-    if not user or not verify_password(login_data.password, user.password):
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
-    
+        
+    # Validar que el usuario tenga password (no es OAuth)
+    if user.password is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This account uses Google login. Please sign in with Google."
+        )
+
+    if not verify_password(login_data.password, user.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+        
     # Crear token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
