@@ -395,43 +395,25 @@ async def google_callback(
         error_url = f"{frontend_url}/auth/google/error?message={str(e)}"
         return RedirectResponse(url=error_url)
 
-
-@router.post("/google/token", response_model=GoogleAuthResponse)
-async def google_auth_token(
-    request: GoogleCallbackRequest,
+@router.post("/google/token", response_model=LoginResponse)
+async def google_token_auth(
+    google_data: GoogleAuthRequest,  # Ahora incluye tipo_usuario
     db: Session = Depends(get_db)
 ):
     """
-    Endpoint alternativo para recibir el código de Google (para SPAs)
-    
-    Args:
-        request: Request con el código de autorización
-        db: Sesión de base de datos
-        
-    Returns:
-        Token JWT y datos del usuario
+    Autenticación con Google OAuth usando ID token
+    Asigna rol según tipo de usuario elegido en frontend
     """
-    try:
-        result = await google_oauth_service.handle_google_callback(
-            request.code, 
-            db
-        )
-        
-        # Convertir usuario a UsuarioResponse
-        usuario_data = UsuarioResponse.model_validate(result['usuario'])
-        
-        return GoogleAuthResponse(
-            access_token=result['access_token'],
-            token_type=result['token_type'],
-            usuario=usuario_data,
-            es_nuevo_usuario=result['es_nuevo_usuario']
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error procesando token de Google: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error en autenticación: {str(e)}"
-        )
+    from app.services.google_oauth_service import google_oauth_service
+    
+    result = google_oauth_service.validate_and_create_user(
+        id_token_str=google_data.id_token,
+        tipo_usuario=google_data.tipo_usuario,  # ← NUEVO
+        db=db
+    )
+    
+    return LoginResponse(  # ← Usar el schema correctamente
+        message="Google login successful",
+        token=result["access_token"],
+        usuario=UsuarioResponse.model_validate(result["usuario"])
+    )

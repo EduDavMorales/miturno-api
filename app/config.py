@@ -18,9 +18,9 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 30
     
     # Google OAuth
-    google_client_id: Optional[str] = None
-    google_client_secret: Optional[str] = None
-    google_redirect_uri: Optional[str] = None
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    GOOGLE_REDIRECT_URI: Optional[str] = None
     
     # CORS
     backend_cors_origins: list = ["http://localhost:3000",

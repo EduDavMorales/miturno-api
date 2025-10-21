@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional
 from app.models.user import TipoUsuario
 
@@ -17,9 +17,19 @@ class LoginResponse(BaseModel):
 
 # Google OAuth
 class GoogleAuthRequest(BaseModel):
-    id_token: str = Field(..., max_length=2000)
-    tipo_usuario: TipoUsuario
-
+    id_token: str = Field(..., description="ID token de Google")
+    tipo_usuario: str = Field(
+        ..., 
+        pattern="^(cliente|empresa)$",
+        description="Tipo de usuario: 'cliente' o 'empresa'"
+    )
+    
+    @validator('tipo_usuario')
+    def validar_tipo(cls, v):
+        v = v.lower()
+        if v not in ['cliente', 'empresa']:
+            raise ValueError('tipo_usuario debe ser "cliente" o "empresa"')
+        return v
 
 # Registro
 class RegistroRequest(BaseModel):

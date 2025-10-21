@@ -1,6 +1,6 @@
 """
-Google OAuth Service - MiTurno API
-Gestiona autenticación con Google OAuth 2.0
+Google OAuth Service - MiTurno API (Versión con tipo_usuario)
+Gestiona autenticación con Google OAuth 2.0 con asignación de roles según tipo
 """
 
 from google.auth.transport import requests
@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 class GoogleOAuthService:
-    """Servicio para manejo de Google OAuth"""
+    """Servicio para manejo de Google OAuth con roles dinámicos"""
     
     def __init__(self):
-        self.client_id = settings.google_client_id
-        self.client_secret = settings.google_client_secret
-        self.redirect_uri = settings.google_redirect_uri
+        self.client_id = settings.GOOGLE_CLIENT_ID
+        self.client_secret = settings.GOOGLE_CLIENT_SECRET
+        self.redirect_uri = settings.GOOGLE_REDIRECT_URI
         
     def get_authorization_url(self, state: Optional[str] = None) -> str:
         """
@@ -55,22 +55,20 @@ class GoogleOAuthService:
         )
         
         flow.redirect_uri = self.redirect_uri
-        
-        authorization_url, _ = flow.authorization_url(
+        authorization_url, state = flow.authorization_url(
             access_type='offline',
             include_granted_scopes='true',
-            state=state,
-            prompt='select_account'
+            state=state
         )
         
         return authorization_url
     
-    async def verify_google_token(self, token: str) -> Dict[str, Any]:
+    def verify_token(self, token: str) -> Dict[str, Any]:
         """
-        Verifica y decodifica token de Google
+        Verifica un ID token de Google
         
         Args:
-            token: Token ID de Google
+            token: ID token de Google
             
         Returns:
             Información del usuario de Google
@@ -85,12 +83,8 @@ class GoogleOAuthService:
                 self.client_id
             )
             
-            # Verificar que el token es para nuestra aplicación
             if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token inválido: emisor no reconocido"
-                )
+                raise ValueError('Wrong issuer.')
             
             return idinfo
             
@@ -98,113 +92,110 @@ class GoogleOAuthService:
             logger.error(f"Error verificando token de Google: {e}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token de Google inválido o expirado"
+                detail="Token de Google inválido"
             )
     
-    async def handle_google_callback(
+    def validate_and_create_user(
         self, 
-        authorization_code: str, 
+        id_token_str: str, 
+        tipo_usuario: str,
         db: Session
     ) -> Dict[str, Any]:
         """
-        Procesa el callback de Google OAuth
+        Valida token de Google y crea/actualiza usuario con rol según tipo
         
         Args:
-            authorization_code: Código de autorización de Google
+            id_token_str: ID token de Google
+            tipo_usuario: Tipo de usuario ('cliente' o 'empresa')
             db: Sesión de base de datos
             
         Returns:
-            Dict con access_token, usuario y si es nuevo
+            Dict con access_token, usuario y es_nuevo_usuario
         """
         try:
-            # Crear flow para obtener tokens
-            flow = Flow.from_client_config(
-                client_config={
-                    "web": {
-                        "client_id": self.client_id,
-                        "client_secret": self.client_secret,
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token",
-                        "redirect_uris": [self.redirect_uri]
-                    }
-                },
-                scopes=[
-                    'openid',
-                    'https://www.googleapis.com/auth/userinfo.email',
-                    'https://www.googleapis.com/auth/userinfo.profile'
-                ]
-            )
+            # Validar token con Google
+            google_user_info = self.verify_token(id_token_str)
             
-            flow.redirect_uri = self.redirect_uri
+            email = google_user_info.get('email')
+            google_id = google_user_info.get('sub')
+            nombre = google_user_info.get('given_name', '')
+            apellido = google_user_info.get('family_name', '')
+            picture_url = google_user_info.get('picture')
             
-            # Intercambiar código por tokens
-            flow.fetch_token(code=authorization_code)
-            
-            # Obtener credenciales
-            credentials = flow.credentials
-            
-            # Verificar el ID token
-            idinfo = await self.verify_google_token(credentials.id_token)
-            
-            # Extraer información del usuario
-            email = idinfo.get('email')
-            nombre_completo = idinfo.get('name', '')
-            google_id = idinfo.get('sub')
-            
-            if not email:
+            if not email or not google_id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="No se pudo obtener el email de Google"
+                    detail="Token de Google no contiene email o ID"
                 )
             
-            # Separar nombre y apellido
-            partes_nombre = nombre_completo.split(' ', 1)
-            nombre = partes_nombre[0]
-            apellido = partes_nombre[1] if len(partes_nombre) > 1 else ''
-            
-            # Buscar o crear usuario
-            usuario = db.query(Usuario).filter(Usuario.email == email).first()
+            # Buscar usuario existente por email o google_id
+            usuario = db.query(Usuario).filter(
+                (Usuario.email == email) | (Usuario.google_id == google_id)
+            ).first()
             
             es_nuevo_usuario = False
             
             if not usuario:
-                # Crear nuevo usuario
-                from app.enums import TipoUsuario
+                # NUEVO USUARIO - Crear según tipo elegido
+                es_nuevo_usuario = True
+                
+                # Mapear tipo_usuario a tipo del modelo
+                tipo_usuario_model = 'CLIENTE' if tipo_usuario == 'cliente' else 'EMPRESA'
+                
                 usuario = Usuario(
                     email=email,
                     nombre=nombre,
                     apellido=apellido,
-                    telefono='',  # Vacío, puede completarlo después
-                    password='',  # Vacío para usuarios OAuth
-                    tipo_usuario=TipoUsuario.CLIENTE,
                     google_id=google_id,
+                    picture_url=picture_url,
+                    tipo_usuario=tipo_usuario_model,
                     activo=True
                 )
                 db.add(usuario)
                 db.flush()  # Para obtener el ID
                 
-                # Asignar rol CLIENTE por defecto
-                rol_cliente = db.query(Rol).filter(Rol.nombre == 'CLIENTE').first()
-                if rol_cliente:
+                # Asignar rol según tipo elegido
+                if tipo_usuario == 'cliente':
+                    rol = db.query(Rol).filter(Rol.nombre == 'CLIENTE').first()
+                else:  # empresa
+                    rol = db.query(Rol).filter(Rol.nombre == 'EMPRESA').first()
+                
+                if rol:
                     usuario_rol = UsuarioRol(
                         usuario_id=usuario.usuario_id,
-                        rol_id=rol_cliente.rol_id,
-                        empresa_id=None,  # Rol global
+                        rol_id=rol.rol_id,
+                        empresa_id=None,  # Rol global inicialmente
                         activo=True
                     )
                     db.add(usuario_rol)
+                else:
+                    logger.error(f"Rol no encontrado para tipo: {tipo_usuario}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Error asignando rol al usuario"
+                    )
                 
                 db.commit()
                 db.refresh(usuario)
                 
-                es_nuevo_usuario = True
-                logger.info(f"Nuevo usuario creado vía Google OAuth: {email}")
+                logger.info(f"Nuevo usuario {tipo_usuario} creado vía Google OAuth: {email}")
+                
             else:
+                # USUARIO EXISTENTE
                 # Actualizar google_id si no lo tenía
                 if not usuario.google_id:
                     usuario.google_id = google_id
-                    db.commit()
-                    db.refresh(usuario)
+                
+                # Actualizar picture_url si cambió
+                if picture_url and usuario.picture_url != picture_url:
+                    usuario.picture_url = picture_url
+                
+                # Actualizar apellido si estaba vacío
+                if not usuario.apellido and apellido:
+                    usuario.apellido = apellido
+                
+                db.commit()
+                db.refresh(usuario)
                 
                 logger.info(f"Usuario existente logueado vía Google OAuth: {email}")
             
@@ -221,7 +212,7 @@ class GoogleOAuthService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error en Google OAuth callback: {e}")
+            logger.error(f"Error en Google OAuth: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error procesando autenticación de Google: {str(e)}"
