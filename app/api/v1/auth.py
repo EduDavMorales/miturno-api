@@ -173,7 +173,7 @@ async def google_auth(
     """
     try:
         # Verificar el token con Google
-        user_info = await google_oauth_service.verify_google_token(google_data.token)
+        user_info = await google_oauth_service.verify_google_token(google_data.id_token)
         
         # Buscar o crear usuario
         user = db.query(Usuario).filter(Usuario.google_id == user_info['sub']).first()
@@ -194,7 +194,7 @@ async def google_auth(
                     apellido=user_info.get('family_name', ''),
                     google_id=user_info['sub'],
                     picture_url=user_info.get('picture'),
-                    tipo_usuario=TipoUsuario.CLIENTE,
+                    tipo_usuario=google_data.tipo_usuario,
                     password=None  # Sin password para OAuth
                 )
                 db.add(user)
