@@ -14,6 +14,8 @@ from app.database import get_db
 from app.models.user import Usuario
 from app.core.logger import get_logger
 
+import secrets
+
 # Logger específico para autenticación
 auth_logger = get_logger("miturno.auth")
 
@@ -162,3 +164,18 @@ def get_current_user(
     except Exception as e:
         auth_logger.error(f"Error inesperado en get_current_user: {str(e)}")
         raise credentials_exception
+    
+# Configuración de refresh tokens
+REFRESH_TOKEN_EXPIRE_DAYS = 30
+
+def create_refresh_token() -> str:
+    """
+    Genera un refresh token aleatorio seguro
+    """
+    return secrets.token_urlsafe(64)
+
+def verify_refresh_token_expiry(expira_en: datetime) -> bool:
+    """
+    Verifica si un refresh token ha expirado
+    """
+    return datetime.utcnow() < expira_en

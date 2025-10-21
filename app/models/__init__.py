@@ -9,7 +9,8 @@ from .horario_empresa import HorarioEmpresa
 from .bloqueo_horario import BloqueoHorario
 from .rol import Rol, Permiso, RolPermiso, UsuarioRol, AutorizacionSoporte
 from .direccion import Direccion  
-from .auditoria_detalle import AuditoriaDetalle 
+from .auditoria_detalle import AuditoriaDetalle
+from .refresh_token import RefreshToken
 
 __all__ = [
     "Usuario", "TipoUsuario",
@@ -27,5 +28,6 @@ __all__ = [
     "UsuarioRol", 
     "AutorizacionSoporte",
     "Direccion",
-    "AuditoriaDetalle"  
+    "AuditoriaDetalle",
+    "RefreshToken"
 ]

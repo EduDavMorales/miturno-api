@@ -6,31 +6,36 @@ from app.models.empresa import Empresa
 from app.models.categoria import Categoria
 from app.models.user import Usuario, TipoUsuario
 from app.models.rol import UsuarioRol
+from app.models.refresh_token import RefreshToken
 from app.schemas.auth import (
     LoginRequest, LoginResponse, RegistroRequest, RegistroResponse,
-    GoogleAuthRequest, UsuarioResponse
+    GoogleAuthRequest, UsuarioResponse,
+    RefreshTokenRequest, RefreshTokenResponse, LoginResponseWithRefresh,
+    GoogleAuthURL, GoogleCallbackRequest, GoogleAuthResponse
 )
-from app.core.security import verify_password, get_password_hash, create_access_token
+from app.core.security import (
+    verify_password, get_password_hash, create_access_token,
+    create_refresh_token, verify_refresh_token_expiry, REFRESH_TOKEN_EXPIRE_DAYS
+)
 from app.config import settings
 from typing import Optional
 from fastapi.responses import RedirectResponse
 import logging
 
-# Importar el servicio y schemas nuevos
+# Importar el servicio
 from app.services.google_oauth_service import google_oauth_service
-from app.schemas.auth import GoogleAuthURL, GoogleCallbackRequest, GoogleAuthResponse
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=LoginResponseWithRefresh)
 async def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Login con email y password
+    Login con email y password - Devuelve access token y refresh token
     """
     # Buscar usuario por email
     user = db.query(Usuario).filter(Usuario.email == login_data.email).first()
@@ -54,7 +59,7 @@ async def login(
             detail="Incorrect email or password"
         )
         
-    # Crear token
+    # Crear access token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
         data={
@@ -65,9 +70,25 @@ async def login(
         expires_delta=access_token_expires
     )
     
-    return LoginResponse(
+    # Crear refresh token
+    refresh_token_str = create_refresh_token()
+    refresh_token_expires = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    
+    refresh_token_record = RefreshToken(
+        usuario_id=user.usuario_id,
+        token=refresh_token_str,
+        expira_en=refresh_token_expires,
+        revocado=False
+    )
+    
+    db.add(refresh_token_record)
+    db.commit()
+    
+    return LoginResponseWithRefresh(
         message="Login successful",
-        token=access_token,
+        access_token=access_token,
+        refresh_token=refresh_token_str,
+        token_type="bearer",
         usuario=UsuarioResponse.model_validate(user)
     )
 
@@ -247,6 +268,61 @@ async def google_auth(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Google token: {str(e)}"
         )
+
+@router.post("/refresh", response_model=RefreshTokenResponse)
+async def refresh_access_token(
+    request: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Obtener nuevo access token usando refresh token
+    """
+    # Buscar refresh token en BD
+    refresh_token_record = db.query(RefreshToken).filter(
+        RefreshToken.token == request.refresh_token,
+        RefreshToken.revocado == False
+    ).first()
+    
+    if not refresh_token_record:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+    
+    # Verificar si expiró
+    if not verify_refresh_token_expiry(refresh_token_record.expira_en):
+        refresh_token_record.revocado = True
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token expired"
+        )
+    
+    # Obtener usuario
+    user = db.query(Usuario).filter(Usuario.usuario_id == refresh_token_record.usuario_id).first()
+    
+    if not user or not user.activo:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
+        )
+    
+    # Crear nuevo access token
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    new_access_token = create_access_token(
+        data={
+            "sub": str(user.usuario_id),
+            "email": user.email,
+            "tipo_usuario": user.tipo_usuario.value
+        },
+        expires_delta=access_token_expires
+    )
+    
+    return RefreshTokenResponse(
+        access_token=new_access_token,
+        token_type="bearer",
+        refresh_token=request.refresh_token
+    )
     
 # ============================================
 # GOOGLE OAUTH ENDPOINTS (Nuevo flujo)

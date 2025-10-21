@@ -89,3 +89,21 @@ class GoogleAuthResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        
+# Refresh Token Schemas
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(..., description="Refresh token para obtener nuevo access token")
+
+
+class RefreshTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    refresh_token: str  # Devolver el mismo refresh token
+
+
+class LoginResponseWithRefresh(BaseModel):
+    message: str
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    usuario: UsuarioResponse
