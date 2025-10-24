@@ -21,17 +21,20 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_REDIRECT_URI: Optional[str] = None
+    OAUTHLIB_INSECURE_TRANSPORT: Optional[str] = None  # Solo para desarrollo local con HTTP
     
     # CORS
-    backend_cors_origins: list = ["http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:5500",
-    "http://localhost:5500",
-]
+    backend_cors_origins: list = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+    ]
     
     class Config:
         env_file = ".env"
         case_sensitive = False
+        extra = "ignore"  # Permite variables extra del .env sin causar errores
 
     def get_database_url(self) -> str:
         """
