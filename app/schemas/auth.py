@@ -117,3 +117,41 @@ class LoginResponseWithRefresh(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     usuario: UsuarioResponse
+    
+# ============================================
+# PASSWORD RESET SCHEMAS
+# ============================================
+
+class ForgotPasswordRequest(BaseModel):
+    """Request para solicitar recuperación de contraseña"""
+    email: str = Field(..., description="Email del usuario")
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Response de solicitud de recuperación"""
+    message: str = "Si el email existe, recibirás un correo con instrucciones"
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request para resetear contraseña con token"""
+    token: str = Field(..., description="Token de recuperación recibido por email")
+    nueva_password: str = Field(..., min_length=8, max_length=50, description="Nueva contraseña")
+    
+    @validator('nueva_password')
+    def validar_password_segura(cls, v):
+        if len(v) < 8:
+            raise ValueError('La contraseña debe tener al menos 8 caracteres')
+        if not any(c.isupper() for c in v):
+            raise ValueError('La contraseña debe tener al menos una mayúscula')
+        if not any(c.islower() for c in v):
+            raise ValueError('La contraseña debe tener al menos una minúscula')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('La contraseña debe tener al menos un número')
+        return v
+
+
+class ResetPasswordResponse(BaseModel):
+    """Response de reset exitoso"""
+    message: str = "Contraseña actualizada exitosamente"
+    email: str

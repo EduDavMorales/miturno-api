@@ -30,4 +30,5 @@ class Usuario(Base):
     # Relaciones
     empresa = relationship("Empresa", back_populates="usuario", uselist=False)
     turnos_como_cliente = relationship("Turno", back_populates="cliente", foreign_keys="Turno.cliente_id")
-    
+    # Relación con tokens de reset de contraseña
+    password_reset_tokens = relationship("PasswordResetToken", back_populates="usuario", cascade="all, delete-orphan")

@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: Optional[str] = None
     GOOGLE_CLIENT_SECRET: Optional[str] = None
     GOOGLE_REDIRECT_URI: Optional[str] = None
-    OAUTHLIB_INSECURE_TRANSPORT: Optional[str] = None  # Solo para desarrollo local con HTTP
+    OAUTHLIB_INSECURE_TRANSPORT: Optional[str] = None
     
     # CORS
     backend_cors_origins: list = [
@@ -31,10 +31,15 @@ class Settings(BaseSettings):
         "http://localhost:5500",
     ]
     
+    # Email Configuration - Brevo (Sendinblue)
+    BREVO_API_KEY: Optional[str] = None
+    EMAIL_FROM: str = "MiTurno <mi.turno@gmail.com>"
+    FRONTEND_URL: str = "http://localhost:3000"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False
-        extra = "ignore"  # Permite variables extra del .env sin causar errores
+        extra = "ignore"
 
     def get_database_url(self) -> str:
         """
@@ -43,6 +48,13 @@ class Settings(BaseSettings):
         if self.database_url.startswith("mysql://"):
             return self.database_url.replace("mysql://", "mysql+pymysql://", 1)
         return self.database_url
+    
+    @property
+    def brevo_enabled(self) -> bool:
+        """
+        Verifica si el envío de emails está habilitado via Brevo
+        """
+        return self.BREVO_API_KEY is not None and len(self.BREVO_API_KEY) > 10
 
 
 settings = Settings()

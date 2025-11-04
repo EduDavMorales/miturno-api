@@ -2,10 +2,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
+import redis.asyncio as redis
+from fastapi_limiter import FastAPILimiter
 
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
-from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones, servicios
+from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones, servicios, horarios
 from app.routers import auditoria, geo_test
 from app.database import engine
 from app.models import user  
@@ -67,15 +69,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configurar CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.backend_cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # Event handlers
 @app.on_event("startup")
 async def startup_event():
@@ -83,22 +76,47 @@ async def startup_event():
     app_logger.info(f"Iniciando {settings.app_name} v{settings.app_version}")
     app_logger.info(f"Debug mode: {settings.debug}")
     app_logger.info(f"CORS origins configurados: {settings.backend_cors_origins}")
+    
+    # Inicializar Redis y FastAPILimiter para rate limiting
+    try:
+        redis_url = "redis://redis:6379"
+        app_logger.info(f"Conectando a Redis: {redis_url}")
+        
+        redis_connection = redis.from_url(
+            redis_url,
+            encoding="utf-8",
+            decode_responses=True
+        )
+        
+        await FastAPILimiter.init(redis_connection)
+        app_logger.info("✅ FastAPILimiter inicializado correctamente con Redis")
+    except Exception as e:
+        app_logger.error(f"❌ Error inicializando FastAPILimiter: {str(e)}")
+        app_logger.warning("⚠️ Rate limiting no estará disponible")
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Evento de cierre de la aplicación"""
     app_logger.info("Cerrando aplicación MiTurno API")
+    
+    # Cerrar conexión de FastAPILimiter
+    try:
+        await FastAPILimiter.close()
+        app_logger.info("✅ FastAPILimiter cerrado correctamente")
+    except Exception as e:
+        app_logger.error(f"Error cerrando FastAPILimiter: {str(e)}")
 
 # Incluir routers
-app.include_router(auth.router, prefix="/api/auth", tags=[" 🔐 Autenticación"])
-app.include_router(empresas.router, prefix="/api/v1", tags=[" 🏢 Empresas"])
+app.include_router(auth.router, prefix="/api/auth", tags=["🔐 Autenticación"])
+app.include_router(empresas.router, prefix="/api/v1", tags=["🏢 Empresas"])
+app.include_router(horarios.router, prefix="/api/v1", tags=["📅 Horarios y Bloqueos"])
 app.include_router(servicios.router, prefix="/api/v1")
-app.include_router(categorias.router, prefix="/api/v1", tags=[" 📂 Categorías"])
-app.include_router(turnos.router, prefix="/api/v1", tags=[" 📅 Turnos"])
-app.include_router(test_roles.router, prefix="/api/v1/test", tags=[" ⚙️ Test Roles"])
+app.include_router(categorias.router, prefix="/api/v1", tags=["📂 Categorías"])
+app.include_router(turnos.router, prefix="/api/v1", tags=["📅 Turnos"])
+app.include_router(test_roles.router, prefix="/api/v1/test", tags=["⚙️ Test Roles"])
 app.include_router(auditoria.router)
 app.include_router(geo_test.router)
-app.include_router(geolocalizacion.router, prefix="/api/v1", tags=["📍 Geolocalización"])
+app.include_router(geolocalizacion.router, prefix="/api/v1", tags=["🗺️ Geolocalización"])
 app.include_router(conversaciones.router, prefix="/api/v1")
 app.include_router(calificaciones.router, prefix="/api/v1")
 

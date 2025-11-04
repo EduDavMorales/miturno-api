@@ -7,7 +7,7 @@ sqlalchemy==2.0.25
 pymysql==1.1.0
 alembic==1.13.1
 
-# Authentication & Security (con cryptography)
+# Authentication & Security
 python-jose[cryptography]==3.3.0
 cryptography==41.0.7
 passlib[bcrypt]==1.7.4
@@ -22,7 +22,7 @@ email-validator==2.1.0
 # Environment variables
 python-dotenv==1.0.0
 
-# HTTP client for geocoding
+# HTTP client
 httpx==0.25.2
 tenacity==8.2.3
 
@@ -30,3 +30,10 @@ tenacity==8.2.3
 google-auth==2.23.0
 google-auth-oauthlib==1.1.0
 google-auth-httplib2==0.1.1
+
+# Email - Brevo (Sendinblue)
+sib-api-v3-sdk==7.6.0
+
+# Rate Limiting
+fastapi-limiter==0.1.6
+redis==5.0.1

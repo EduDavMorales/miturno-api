@@ -1,5 +1,5 @@
 # app/models/bloqueo_horario.py
-from sqlalchemy import Column, Integer, Date, Time, String, Enum, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, Date, Time, String, Enum, DateTime, ForeignKey, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -17,6 +17,7 @@ class BloqueoHorario(Base):
     motivo = Column(String(255))
     tipo = Column(Enum(TipoBloqueo), default=TipoBloqueo.OTRO)
     fecha_creacion = Column(DateTime, server_default=func.now())
+    activo = Column(Boolean, default=True)  # Para soft delete
     
     # Relaciones
     empresa = relationship("Empresa", back_populates="bloqueos")

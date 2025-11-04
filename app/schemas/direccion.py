@@ -24,8 +24,13 @@ class DireccionResponse(BaseModel):
         from_attributes = True
 
 class DireccionUpdate(BaseModel):
+    """Schema para actualizar dirección (todos opcionales)"""
     calle: Optional[str] = None
     numero: Optional[str] = None
     ciudad: Optional[str] = None
     provincia: Optional[str] = None
     codigo_postal: Optional[str] = None
+    pais: Optional[str] = None  # ← AGREGADO
+    
+    class Config:
+        from_attributes = True

@@ -16,7 +16,6 @@ from app.schemas.empresa import EmpresasListResponse, EmpresaCreate, EmpresaResp
 from app.schemas.equipo import EquipoListResponse, EquipoMiembro, InvitacionCreate, InvitacionResponse, CambiarRolRequest, CambioRolResponse, DesactivarMiembroRequest, DesactivacionResponse
 from app.services.empresa_service import EmpresaService
 from app.core.security import get_current_user
-from fastapi_limiter.depends import RateLimiter
 
 # Configurar logging
 logger = logging.getLogger(__name__)
@@ -25,7 +24,6 @@ router = APIRouter()
 
 @router.get(
     "/empresas", 
-    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
     response_model=EmpresasListResponse,
     status_code=status.HTTP_200_OK,
     summary="Listar empresas con filtros",
@@ -62,7 +60,6 @@ def get_empresas(
 
 @router.get(
     "/empresas/{empresa_id}",
-    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
     response_model=EmpresaResponse,
     status_code=status.HTTP_200_OK,
     summary="Obtener empresa por ID",
@@ -96,7 +93,6 @@ def get_empresa(
 
 @router.post(
     "/empresas", 
-    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
     response_model=EmpresaResponse,
     status_code=status.HTTP_201_CREATED,  
     summary="Crear nueva empresa",
@@ -124,7 +120,7 @@ def create_empresa(
     usuario_rol = db.query(UsuarioRol).filter(
         UsuarioRol.usuario_id == current_user.usuario_id,
         UsuarioRol.rol_id == 4,  # Rol EMPRESA
-        UsuarioRol.activo == True
+        UsuarioRol.activa == True
     ).first()
     
     if not usuario_rol:
@@ -152,7 +148,6 @@ def create_empresa(
 
 @router.get(
     "/empresas/usuario/{usuario_id}",
-    dependencies=[Depends(RateLimiter(times=100, seconds=60))],
     response_model=EmpresaResponse,
     status_code=status.HTTP_200_OK,
     summary="Obtener empresa de un usuario",
@@ -163,22 +158,12 @@ def get_empresa_by_usuario(
     current_user: Usuario = Depends(get_current_user),  
     db: Session = Depends(get_db)
 ):
-    # Validar permisos RBAC
-    es_propia = (current_user.usuario_id == usuario_id)
-    
-    if not es_propia:
-        # Si no es propia, requiere permiso de admin
-        permission_service = PermissionService(db)
-        tiene_permiso = permission_service.usuario_tiene_permiso(
-            current_user.usuario_id,
-            "sistema:gestionar_empresas"
+    # Validar que solo puede ver su propia empresa o es admin
+    if current_user.usuario_id != usuario_id and current_user.tipo_usuario.value not in ["ADMIN", "SUPERADMIN"]:  
+        raise HTTPException(
+            status_code=403,
+            detail="Solo puedes ver tu propia empresa"
         )
-        
-        if not tiene_permiso:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="No tienes permisos para ver empresas de otros usuarios. Necesitas: sistema:gestionar_empresas"
-            )
     try:
         usuario = db.query(Usuario).filter(Usuario.usuario_id == usuario_id).first()
         if not usuario:
@@ -218,7 +203,6 @@ def get_empresa_by_usuario(
 
 @router.put(
     "/empresas/{empresa_id}",
-    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
     response_model=EmpresaResponse,
     status_code=status.HTTP_200_OK,
     summary="Actualizar empresa completa",
@@ -254,34 +238,12 @@ def update_empresa_completa(
                 detail=f"Empresa con ID {empresa_id} no encontrada"
             )
         
-        # 2. Verificar permisos RBAC
-        es_propia = (empresa_actual.usuario_id == current_user.usuario_id)
-        permission_service = PermissionService(db)
-        
-        if es_propia:
-            # Si es propia, verificar permiso de actualización propia
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "empresas:actualizar_propia",
-                empresa_id
-            )
-            
-            if not tiene_permiso:
+        # 2. Verificar permisos (solo el propietario o admin)
+        if empresa_actual.usuario_id != current_user.usuario_id:
+            if current_user.tipo_usuario.value not in ["ADMIN", "SUPERADMIN"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para actualizar tu empresa. Necesitas: empresas:actualizar_propia"
-                )
-        else:
-            # Si no es propia, verificar permiso de admin
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "sistema:gestionar_empresas"
-            )
-            
-            if not tiene_permiso:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para actualizar empresas de otros. Necesitas: sistema:gestionar_empresas"
+                    detail="Solo el propietario o administradores pueden actualizar esta empresa"
                 )
         
         # 3. Guardar datos anteriores para auditoría
@@ -365,7 +327,6 @@ def update_empresa_completa(
 
 @router.patch(
     "/empresas/{empresa_id}",
-    dependencies=[Depends(RateLimiter(times=30, seconds=60))],
     response_model=EmpresaResponse,
     status_code=status.HTTP_200_OK,
     summary="Actualizar empresa parcialmente",
@@ -402,34 +363,12 @@ def update_empresa_parcial(
                 detail=f"Empresa con ID {empresa_id} no encontrada"
             )
         
-        # 2. Verificar permisos RBAC
-        es_propia = (empresa_actual.usuario_id == current_user.usuario_id)
-        permission_service = PermissionService(db)
-        
-        if es_propia:
-            # Si es propia, verificar permiso de actualización propia
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "empresas:actualizar_propia",
-                empresa_id
-            )
-            
-            if not tiene_permiso:
+        # 2. Verificar permisos
+        if empresa_actual.usuario_id != current_user.usuario_id:
+            if current_user.tipo_usuario.value not in ["ADMIN", "SUPERADMIN"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para actualizar tu empresa. Necesitas: empresas:actualizar_propia"
-                )
-        else:
-            # Si no es propia, verificar permiso de admin
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "sistema:gestionar_empresas"
-            )
-            
-            if not tiene_permiso:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para actualizar empresas de otros. Necesitas: sistema:gestionar_empresas"
+                    detail="Solo el propietario o administradores pueden actualizar esta empresa"
                 )
         
         # 3. Guardar datos anteriores para auditoría
@@ -513,14 +452,13 @@ def update_empresa_parcial(
 
 @router.delete(
     "/empresas/{empresa_id}",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
     status_code=status.HTTP_200_OK,
     summary="Desactivar empresa (soft delete)",
     description="""
     Desactiva una empresa sin eliminarla físicamente de la base de datos.
     
     **Comportamiento:**
-    - Marca la empresa como inactiva (activo=False)
+    - Marca la empresa como inactiva (activa=False)
     - Preserva todo el historial y datos
     - Puede reactivarse posteriormente si es necesario
     
@@ -551,34 +489,12 @@ def desactivar_empresa(
                 detail="Empresa no encontrada o ya está inactiva"
             )
         
-        # 2. Verificar permisos RBAC (desactivar es acción crítica)
-        es_propia = (empresa.usuario_id == current_user.usuario_id)
-        permission_service = PermissionService(db)
-        
-        if es_propia:
-            # Si es propia, verificar permiso de gestión completa
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "empresas:gestionar_completa",
-                empresa_id
-            )
-            
-            if not tiene_permiso:
+        # 2. Verificar permisos
+        if empresa.usuario_id != current_user.usuario_id:
+            if current_user.tipo_usuario.value not in ["ADMIN", "SUPERADMIN"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para desactivar tu empresa. Necesitas: empresas:gestionar_completa"
-                )
-        else:
-            # Si no es propia, verificar permiso de admin
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "sistema:gestionar_empresas"
-            )
-            
-            if not tiene_permiso:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para desactivar empresas de otros. Necesitas: sistema:gestionar_empresas"
+                    detail="Solo el propietario o administradores pueden desactivar esta empresa"
                 )
         
         # 3. Guardar datos para auditoría
@@ -627,14 +543,13 @@ def desactivar_empresa(
 
 @router.patch(
     "/empresas/{empresa_id}/reactivar",
-    dependencies=[Depends(RateLimiter(times=10, seconds=60))],
     status_code=status.HTTP_200_OK,
     summary="Reactivar empresa",
     description="""
     Reactiva una empresa que fue desactivada previamente.
     
     **Comportamiento:**
-    - Marca la empresa como activa (activo=True)
+    - Marca la empresa como activa (activa=True)
     - Restaura el acceso completo a la empresa
     - Solo disponible para empresas previamente desactivadas
     
@@ -665,34 +580,12 @@ def reactivar_empresa(
                 detail="Empresa no encontrada o ya está activa"
             )
         
-        # 2. Verificar permisos RBAC (reactivar es acción crítica)
-        es_propia = (empresa.usuario_id == current_user.usuario_id)
-        permission_service = PermissionService(db)
-        
-        if es_propia:
-            # Si es propia, verificar permiso de gestión completa
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "empresas:gestionar_completa",
-                empresa_id
-            )
-            
-            if not tiene_permiso:
+        # 2. Verificar permisos
+        if empresa.usuario_id != current_user.usuario_id:
+            if current_user.tipo_usuario.value not in ["ADMIN", "SUPERADMIN"]:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para reactivar tu empresa. Necesitas: empresas:gestionar_completa"
-                )
-        else:
-            # Si no es propia, verificar permiso de admin
-            tiene_permiso = permission_service.usuario_tiene_permiso(
-                current_user.usuario_id,
-                "sistema:gestionar_empresas"
-            )
-            
-            if not tiene_permiso:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="No tienes permisos para reactivar empresas de otros. Necesitas: sistema:gestionar_empresas"
+                    detail="Solo el propietario o administradores pueden reactivar esta empresa"
                 )
         
         # 3. Guardar datos para auditoría
@@ -754,14 +647,14 @@ def reactivar_empresa(
     **Permisos requeridos:** roles:leer_empresa
     
     **Incluye:**
-    - Miembros activos e inactivos
+    - Miembros activas e inactivas
     - Información de rol asignado
     - Fechas de asignación/desactivación
     """
 )
 def listar_equipo(
     empresa_id: int,
-    solo_activos: bool = Query(True, description="Mostrar solo miembros activos"),
+    solo_activas: bool = Query(True, description="Mostrar solo miembros activas"),
     db: Session = Depends(get_db),
     current_user: Usuario = Depends(get_current_user)
 ):
@@ -772,7 +665,7 @@ def listar_equipo(
         usuario_rol = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == current_user.usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol:
@@ -787,8 +680,8 @@ def listar_equipo(
             .join(Rol, UsuarioRol.rol_id == Rol.rol_id)\
             .filter(UsuarioRol.empresa_id == empresa_id)
         
-        if solo_activos:
-            query = query.filter(UsuarioRol.activo == True)
+        if solo_activas:
+            query = query.filter(UsuarioRol.activa == True)
         
         resultado = query.order_by(Rol.nivel.desc(), Usuario.nombre).all()
         
@@ -801,20 +694,20 @@ def listar_equipo(
                 email=usuario.email,
                 rol=rol.nombre,
                 rol_id=rol.rol_id,
-                activo=usuario_rol.activo,
+                activa=usuario_rol.activa,
                 fecha_asignado=usuario_rol.fecha_asignado,
                 fecha_desactivacion=getattr(usuario_rol, 'fecha_desactivacion', None)
             ))
         
         # Contar totales
         total = len(equipo)
-        activos = sum(1 for m in equipo if m.activo)
+        activas = sum(1 for m in equipo if m.activa)
         
-        logger.info(f"Equipo de empresa {empresa_id}: {activos} activos de {total} total")
+        logger.info(f"Equipo de empresa {empresa_id}: {activas} activas de {total} total")
         
         return EquipoListResponse(
             total=total,
-            activos=activos,
+            activas=activas,
             equipo=equipo
         )
         
@@ -862,7 +755,7 @@ def invitar_miembro(
         usuario_rol_actual = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == current_user.usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_actual:
@@ -900,13 +793,13 @@ def invitar_miembro(
         # Validar que el rol a asignar existe y es válido
         rol_a_asignar = db.query(Rol).filter(
             Rol.nombre == invitacion.rol.value,
-            Rol.activo == True
+            Rol.activa == True
         ).first()
         
         if not rol_a_asignar:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Rol '{invitacion.rol}' no existe o está inactivo"
+                detail=f"Rol '{invitacion.rol}' no existe o está inactiva"
             )
         
         # Validar que el rol es de tipo empresa
@@ -1039,7 +932,7 @@ def cambiar_rol_miembro(
         usuario_rol_actual = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == current_user.usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_actual:
@@ -1073,13 +966,13 @@ def cambiar_rol_miembro(
         usuario_rol_modificar = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_modificar:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="El usuario no pertenece a esta empresa o está inactivo"
+                detail="El usuario no pertenece a esta empresa o está inactiva"
             )
         
         # Obtener rol anterior para auditoría
@@ -1090,13 +983,13 @@ def cambiar_rol_miembro(
         # Validar que el nuevo rol existe y es válido
         nuevo_rol = db.query(Rol).filter(
             Rol.nombre == cambio_rol.nuevo_rol.value,
-            Rol.activo == True
+            Rol.activa == True
         ).first()
         
         if not nuevo_rol:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Rol '{cambio_rol.nuevo_rol}' no existe o está inactivo"
+                detail=f"Rol '{cambio_rol.nuevo_rol}' no existe o está inactiva"
             )
         
         # Validar que el rol es de tipo empresa
@@ -1213,7 +1106,7 @@ def crear_miembro_test(
         usuario_rol_actual = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == current_user.usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_actual:
@@ -1236,7 +1129,7 @@ def crear_miembro_test(
         # Obtener el rol
         rol_asignar = db.query(Rol).filter(
             Rol.nombre == rol,
-            Rol.activo == True
+            Rol.activa == True
         ).first()
         
         if not rol_asignar:
@@ -1265,7 +1158,7 @@ def crear_miembro_test(
             rol_id=rol_asignar.rol_id,
             empresa_id=empresa_id,
             asignado_por=current_user.usuario_id,
-            activo=True
+            activa=True
         )
         db.add(nuevo_usuario_rol)
         
@@ -1300,7 +1193,7 @@ def crear_miembro_test(
             email=nuevo_usuario.email,
             rol=rol_asignar.nombre,
             rol_id=rol_asignar.rol_id,
-            activo=True,
+            activa=True,
             fecha_asignado=nuevo_usuario_rol.fecha_asignado,
             fecha_desactivacion=None
         )
@@ -1332,7 +1225,7 @@ def crear_miembro_test(
     **Validaciones:**
     - Solo usuarios con permiso pueden desactivar
     - No puede desactivarse a sí mismo
-    - El usuario debe pertenecer a la empresa y estar activo
+    - El usuario debe pertenecer a la empresa y estar activa
     - Debe proporcionar un motivo
     
     **Auditoría:** Se registra automáticamente la desactivación
@@ -1354,7 +1247,7 @@ def desactivar_miembro(
         usuario_rol_actual = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == current_user.usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_actual:
@@ -1388,13 +1281,13 @@ def desactivar_miembro(
         usuario_rol_desactivar = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_desactivar:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="El usuario no pertenece a esta empresa o ya está inactivo"
+                detail="El usuario no pertenece a esta empresa o ya está inactiva"
             )
         
         # Obtener información del usuario y rol para la respuesta
@@ -1436,7 +1329,7 @@ def desactivar_miembro(
         db.add(auditoria)
         
         # Desactivar el miembro (SOFT DELETE)
-        usuario_rol_desactivar.activo = False
+        usuario_rol_desactivar.activa = False
         usuario_rol_desactivar.motivo_inactivacion = desactivacion.motivo
         
         db.commit()
@@ -1450,7 +1343,7 @@ def desactivar_miembro(
         return DesactivacionResponse(
             message=f"Miembro {usuario_desactivado.nombre} desactivado exitosamente",
             usuario_id=usuario_id,
-            activo=False,
+            activa=False,
             fecha_cambio=fecha_cambio,
             motivo=desactivacion.motivo
         )
@@ -1481,7 +1374,7 @@ def desactivar_miembro(
     
     **Validaciones:**
     - Solo usuarios con permiso pueden reactivar
-    - El usuario debe pertenecer a la empresa y estar inactivo
+    - El usuario debe pertenecer a la empresa y estar inactiva
     - Se elimina el motivo de inactivación al reactivar
     
     **Auditoría:** Se registra automáticamente la reactivación
@@ -1500,7 +1393,7 @@ def reactivar_miembro(
         usuario_rol_actual = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == current_user.usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == True
+            UsuarioRol.activa == True
         ).first()
         
         if not usuario_rol_actual:
@@ -1523,17 +1416,17 @@ def reactivar_miembro(
                 detail="No tienes permisos para reactivar miembros. Necesitas: usuarios:gestionar_empresa"
             )
         
-        # Obtener el usuario_rol del miembro a reactivar (debe estar inactivo)
+        # Obtener el usuario_rol del miembro a reactivar (debe estar inactiva)
         usuario_rol_reactivar = db.query(UsuarioRol).filter(
             UsuarioRol.usuario_id == usuario_id,
             UsuarioRol.empresa_id == empresa_id,
-            UsuarioRol.activo == False
+            UsuarioRol.activa == False
         ).first()
         
         if not usuario_rol_reactivar:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="El usuario no pertenece a esta empresa o ya está activo"
+                detail="El usuario no pertenece a esta empresa o ya está activa"
             )
         
         # Obtener información del usuario y rol para la respuesta
@@ -1579,7 +1472,7 @@ def reactivar_miembro(
         db.add(auditoria)
         
         # Reactivar el miembro
-        usuario_rol_reactivar.activo = True
+        usuario_rol_reactivar.activa = True
         usuario_rol_reactivar.motivo_inactivacion = None
         
         db.commit()
@@ -1593,7 +1486,7 @@ def reactivar_miembro(
         return DesactivacionResponse(
             message=f"Miembro {usuario_reactivado.nombre} reactivado exitosamente",
             usuario_id=usuario_id,
-            activo=True,
+            activa=True,
             fecha_cambio=fecha_cambio,
             motivo=None
         )

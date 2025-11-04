@@ -11,6 +11,7 @@ from .rol import Rol, Permiso, RolPermiso, UsuarioRol, AutorizacionSoporte
 from .direccion import Direccion  
 from .auditoria_detalle import AuditoriaDetalle
 from .refresh_token import RefreshToken
+from .password_reset_token import PasswordResetToken
 
 __all__ = [
     "Usuario", "TipoUsuario",
@@ -29,5 +30,6 @@ __all__ = [
     "AutorizacionSoporte",
     "Direccion",
     "AuditoriaDetalle",
-    "RefreshToken"
+    "RefreshToken",
+    "PasswordResetToken"
 ]

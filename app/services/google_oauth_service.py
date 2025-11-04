@@ -7,6 +7,7 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from google_auth_oauthlib.flow import Flow
 from typing import Optional, Dict, Any
+from datetime import timedelta
 import logging
 
 from app.config import settings
@@ -200,7 +201,14 @@ class GoogleOAuthService:
                 logger.info(f"Usuario existente logueado vía Google OAuth: {email}")
             
             # Generar JWT token
-            access_token = create_access_token(data={"sub": str(usuario.usuario_id)})
+            access_token = create_access_token(
+            data={
+                "sub": str(usuario.usuario_id),
+                "email": usuario.email,
+                "tipo_usuario": usuario.tipo_usuario.value
+            },
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes)
+)
             
             return {
                 "access_token": access_token,
