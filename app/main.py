@@ -79,7 +79,7 @@ async def startup_event():
     
     # Inicializar Redis y FastAPILimiter para rate limiting
     try:
-        redis_url = "redis://redis:6379"
+        redis_url = os.getenv("REDIS_URL") or "redis://redis:6379"
         app_logger.info(f"Conectando a Redis: {redis_url}")
         
         redis_connection = redis.from_url(
