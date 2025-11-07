@@ -13,6 +13,7 @@ from app.models.user import Usuario
 from app.schemas.turno import (
     DisponibilidadRequest,
     DisponibilidadResponse,
+    DisponibilidadDia,
     SlotDisponible,
     ReservaTurnoRequest,
     TurnoResponse,
@@ -29,13 +30,13 @@ class TurnoService:
     def __init__(self, db: Session):
         self.db = db
     
-    def obtener_disponibilidad(
+    def obtener_disponibilidad_rango(
         self, 
         empresa_id: int, 
         request: DisponibilidadRequest
     ) -> DisponibilidadResponse:
         """
-        Calcula la disponibilidad de turnos para una empresa en una fecha específica
+        Calcula la disponibilidad de turnos para una empresa en un rango de fechas
         """
         # Verificar que la empresa existe y está activa
         empresa = self.db.query(Empresa).filter(
@@ -49,8 +50,52 @@ class TurnoService:
                 detail="Empresa no encontrada o inactiva"
             )
         
-        # Obtener día de la semana (lunes=0, domingo=6)
-        dia_semana = self._obtener_dia_semana(request.fecha)
+        # Si no hay fecha_hasta, usar fecha_desde
+        fecha_hasta = request.fecha_hasta if request.fecha_hasta else request.fecha_desde
+        
+        # Generar lista de fechas en el rango
+        fechas = []
+        fecha_actual = request.fecha_desde
+        while fecha_actual <= fecha_hasta:
+            fechas.append(fecha_actual)
+            fecha_actual += timedelta(days=1)
+        
+        # Obtener disponibilidad para cada fecha
+        dias_disponibilidad = []
+        total_slots_global = 0
+        
+        for fecha in fechas:
+            disponibilidad_dia = self._obtener_disponibilidad_dia(
+                empresa_id,
+                fecha,
+                request.servicio_id
+            )
+            
+            if disponibilidad_dia and disponibilidad_dia.slots_disponibles:
+                dias_disponibilidad.append(disponibilidad_dia)
+                total_slots_global += len(disponibilidad_dia.slots_disponibles)
+        
+        return DisponibilidadResponse(
+            fecha_desde=request.fecha_desde,
+            fecha_hasta=fecha_hasta,
+            empresa_id=empresa_id,
+            empresa_nombre=empresa.razon_social,
+            dias=dias_disponibilidad,
+            total_dias_con_disponibilidad=len(dias_disponibilidad),
+            total_slots=total_slots_global
+        )
+    
+    def _obtener_disponibilidad_dia(
+        self,
+        empresa_id: int,
+        fecha: date,
+        servicio_id: Optional[int] = None
+    ) -> Optional[DisponibilidadDia]:
+        """
+        Calcula la disponibilidad para un día específico (método interno)
+        """
+        # Obtener día de la semana
+        dia_semana = self._obtener_dia_semana(fecha)
         
         # Obtener horarios de trabajo para ese día
         horarios_trabajo = self.db.query(HorarioEmpresa).filter(
@@ -60,13 +105,7 @@ class TurnoService:
         ).all()
         
         if not horarios_trabajo:
-            return DisponibilidadResponse(
-                fecha=request.fecha,
-                empresa_id=empresa_id,
-                empresa_nombre=empresa.razon_social,
-                slots_disponibles=[],
-                total_slots=0
-            )
+            return None
         
         # Obtener servicios disponibles
         servicios_query = self.db.query(Servicio).filter(
@@ -74,26 +113,20 @@ class TurnoService:
             Servicio.activo == True
         )
         
-        if request.servicio_id:
+        if servicio_id:
             servicios_query = servicios_query.filter(
-                Servicio.servicio_id == request.servicio_id
+                Servicio.servicio_id == servicio_id
             )
         
         servicios = servicios_query.all()
         
         if not servicios:
-            return DisponibilidadResponse(
-                fecha=request.fecha,
-                empresa_id=empresa_id,
-                empresa_nombre=empresa.nombre,
-                slots_disponibles=[],
-                total_slots=0
-            )
+            return None
         
         # Obtener turnos ya reservados para esa fecha
         turnos_ocupados = self.db.query(Turno).filter(
             Turno.empresa_id == empresa_id,
-            Turno.fecha == request.fecha,
+            Turno.fecha == fecha,
             Turno.estado.in_([EstadoTurno.PENDIENTE, EstadoTurno.CONFIRMADO])
         ).all()
         
@@ -107,17 +140,18 @@ class TurnoService:
                     horario.hora_cierre,
                     servicio,
                     turnos_ocupados,
-                    request.fecha
+                    fecha
                 )
                 slots_disponibles.extend(slots_servicio)
         
         # Ordenar por hora de inicio
         slots_disponibles.sort(key=lambda slot: slot.hora_inicio)
         
-        return DisponibilidadResponse(
-            fecha=request.fecha,
-            empresa_id=empresa_id,
-            empresa_nombre=empresa.razon_social,
+        if not slots_disponibles:
+            return None
+        
+        return DisponibilidadDia(
+            fecha=fecha,
             slots_disponibles=slots_disponibles,
             total_slots=len(slots_disponibles)
         )
@@ -223,12 +257,13 @@ class TurnoService:
             Turno.hora.desc()
         ).offset(offset).limit(por_pagina).all()
         
-        # Convertir a response
+        # Convertir a response objects
         turnos_response = [
-            self._convertir_a_turno_response(turno) for turno in turnos
+            self._convertir_a_turno_response(turno)
+            for turno in turnos
         ]
         
-        # Calcular metadatos de paginación
+        # Calcular información de paginación
         total_paginas = (total + por_pagina - 1) // por_pagina
         
         return TurnosList(
@@ -370,6 +405,7 @@ class TurnoService:
             
             if not conflicto:
                 slots.append(SlotDisponible(
+                    fecha=fecha,
                     hora_inicio=slot_actual.time(),
                     hora_fin=slot_fin.time(),
                     servicio_id=servicio.servicio_id,
@@ -378,7 +414,7 @@ class TurnoService:
                     precio=float(servicio.precio)
                 ))
             
-            # Avanzar al siguiente slot (por ejemplo, cada 30 minutos)
+            # Avanzar al siguiente slot (cada 30 minutos por defecto)
             slot_actual += timedelta(minutes=30)
         
         return slots

@@ -36,19 +36,34 @@ router = APIRouter()
 @router.get("/empresas/{empresa_id}/disponibilidad", response_model=DisponibilidadResponse)
 def consultar_disponibilidad(
     empresa_id: int,
-    fecha: str = Query(..., description="Fecha en formato YYYY-MM-DD"),
+    fecha_desde: str = Query(..., description="Fecha desde (YYYY-MM-DD)"),
+    fecha_hasta: Optional[str] = Query(None, description="Fecha hasta (YYYY-MM-DD). Si no se especifica, usa fecha_desde"),
     servicio_id: Optional[int] = Query(None, description="ID del servicio específico"),
     current_user: Usuario = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Consulta la disponibilidad de turnos para una empresa en una fecha específica
+    Consulta la disponibilidad de turnos para una empresa en un rango de fechas.
+    
+    **Uso:**
+    - Solo fecha_desde: Disponibilidad de ese día específico
+    - fecha_desde + fecha_hasta: Disponibilidad en todo el rango (máximo 30 días)
+    
+    **Respuesta:**
+    - Lista de días con slots disponibles
+    - Cada slot incluye: fecha, hora, servicio, duración y precio
     """
     from datetime import datetime
     
     try:
-        # Parsear fecha
-        fecha_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
+        # Parsear fecha_desde
+        fecha_desde_obj = datetime.strptime(fecha_desde, "%Y-%m-%d").date()
+        
+        # Parsear fecha_hasta si existe, sino usar fecha_desde
+        fecha_hasta_obj = None
+        if fecha_hasta:
+            fecha_hasta_obj = datetime.strptime(fecha_hasta, "%Y-%m-%d").date()
+        
     except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -56,11 +71,15 @@ def consultar_disponibilidad(
         )
     
     # Crear request object
-    request = DisponibilidadRequest(fecha=fecha_obj, servicio_id=servicio_id)
+    request = DisponibilidadRequest(
+        fecha_desde=fecha_desde_obj,
+        fecha_hasta=fecha_hasta_obj,
+        servicio_id=servicio_id
+    )
     
     # Usar TurnoService
     service = TurnoService(db)
-    return service.obtener_disponibilidad(empresa_id, request)
+    return service.obtener_disponibilidad_rango(empresa_id, request)
 
 @router.post("/turnos/reservar", response_model=TurnoResponse)
 def reservar_turno(

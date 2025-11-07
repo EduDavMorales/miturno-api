@@ -45,17 +45,36 @@ class TurnoCancelacionSchema(BaseModel):
 # Schemas para disponibilidad
 class DisponibilidadRequest(BaseModel):
     """Request para consultar disponibilidad de una empresa"""
-    fecha: date = Field(..., description="Fecha para consultar disponibilidad")
+    fecha_desde: date = Field(..., description="Fecha desde para consultar disponibilidad")
+    fecha_hasta: Optional[date] = Field(None, description="Fecha hasta (opcional, si no se especifica usa fecha_desde)")
     servicio_id: Optional[int] = Field(None, description="ID del servicio específico (opcional)")
     
-    @validator('fecha')
-    def validar_fecha_futura(cls, v):
+    @validator('fecha_desde')
+    def validar_fecha_desde_futura(cls, v):
         if v < date.today():
-            raise ValueError('La fecha debe ser hoy o en el futuro')
+            raise ValueError('La fecha_desde debe ser hoy o en el futuro')
+        return v
+    
+    @validator('fecha_hasta')
+    def validar_fecha_hasta(cls, v, values):
+        if v:
+            # Validar que sea futura
+            if v < date.today():
+                raise ValueError('La fecha_hasta debe ser hoy o en el futuro')
+            
+            # Validar que sea mayor o igual a fecha_desde
+            if 'fecha_desde' in values and v < values['fecha_desde']:
+                raise ValueError('fecha_hasta debe ser mayor o igual a fecha_desde')
+            
+            # Limitar rango máximo a 30 días
+            if 'fecha_desde' in values and (v - values['fecha_desde']).days > 30:
+                raise ValueError('El rango máximo es de 30 días')
+        
         return v
 
 class SlotDisponible(BaseModel):
     """Representa un slot de tiempo disponible"""
+    fecha: date = Field(..., description="Fecha del slot")
     hora_inicio: time = Field(..., description="Hora de inicio del slot")
     hora_fin: time = Field(..., description="Hora de fin del slot")
     servicio_id: int = Field(..., description="ID del servicio")
@@ -63,13 +82,21 @@ class SlotDisponible(BaseModel):
     duracion_minutos: int = Field(..., description="Duración en minutos")
     precio: float = Field(..., description="Precio del servicio")
 
+class DisponibilidadDia(BaseModel):
+    """Disponibilidad de un día específico"""
+    fecha: date = Field(..., description="Fecha")
+    slots_disponibles: List[SlotDisponible] = Field(default_factory=list, description="Slots disponibles en este día")
+    total_slots: int = Field(..., description="Total de slots disponibles en este día")
+
 class DisponibilidadResponse(BaseModel):
     """Respuesta con disponibilidad de turnos"""
-    fecha: date = Field(..., description="Fecha consultada")
+    fecha_desde: date = Field(..., description="Fecha desde consultada")
+    fecha_hasta: date = Field(..., description="Fecha hasta consultada")
     empresa_id: int = Field(..., description="ID de la empresa")
     empresa_nombre: str = Field(..., description="Nombre de la empresa")
-    slots_disponibles: List[SlotDisponible] = Field(default_factory=list, description="Lista de horarios disponibles")
-    total_slots: int = Field(..., description="Total de slots disponibles")
+    dias: List[DisponibilidadDia] = Field(default_factory=list, description="Disponibilidad por día")
+    total_dias_con_disponibilidad: int = Field(..., description="Total de días con al menos un slot disponible")
+    total_slots: int = Field(..., description="Total de slots disponibles en todo el rango")
 
 # Schema para reservar turnos
 class ReservaTurnoRequest(BaseModel):
