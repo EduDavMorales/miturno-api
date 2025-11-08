@@ -16,9 +16,11 @@ from app.schemas.auth import (
     ForgotPasswordRequest, ForgotPasswordResponse,  
     ResetPasswordRequest, ResetPasswordResponse     
 )
+from app.auth.permissions import get_user_roles, assign_role
 from app.core.security import (
     verify_password, get_password_hash, create_access_token,
-    create_refresh_token, verify_refresh_token_expiry, REFRESH_TOKEN_EXPIRE_DAYS
+    create_refresh_token, verify_refresh_token_expiry, REFRESH_TOKEN_EXPIRE_DAYS,
+    get_current_user
 )
 from app.config import settings
 from typing import Optional
@@ -78,14 +80,28 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
-        
-    # Crear access token
+    # 1. Obtener el rol de sistema más alto del usuario desde la tabla usuario_rol
+    roles = get_user_roles(user.usuario_id, db)
+    
+    # 2. Determinar el valor que irá en el token (priorizar rol de sistema sobre tipo_usuario)
+    # Asumimos que get_user_roles devuelve el rol más alto primero (ej: ['SUPERADMIN', 'CLIENTE'])
+    rol_principal = None
+    if roles:
+        # Usamos el primer rol (el más alto) como el rol principal de la sesión
+        rol_principal = roles[0] 
+    
+    # Si no se encontró un rol de sistema, usamos el tipo_usuario estático como respaldo
+    if rol_principal is None or rol_principal not in ["SUPERADMIN", "ADMIN", "ADMIN_EMPRESA"]:
+        rol_principal = user.tipo_usuario.value
+    
+    # 3. Crear access token y añadir el campo tipo_usuario con el rol principal
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
         data={
             "sub": str(user.usuario_id),
             "email": user.email,
-            "tipo_usuario": user.tipo_usuario.value
+            # 💡 ESTO AHORA ES CORRECTO: Envía el rol de sistema ('SUPERADMIN')
+            "tipo_usuario": rol_principal 
         },
         expires_delta=access_token_expires
     )
@@ -178,28 +194,24 @@ async def register(
         db.add(new_user)
         db.flush()  # Obtener ID del usuario
         
-        # 4. Determinar rol según tipo_usuario
+        # 4. Asignar rol según tipo_usuario usando sistema RBAC
         if registro_data.tipo_usuario == TipoUsuario.CLIENTE:
-            rol_id = 6  # Rol CLIENTE
+            rol_nombre = "CLIENTE"
             
         elif registro_data.tipo_usuario == TipoUsuario.EMPRESA:
-            rol_id = 4  # Rol EMPRESA (creará empresa después con POST /empresas)
+            rol_nombre = "EMPRESA"  # Cuando cree la empresa se cambiará a ADMIN_EMPRESA
             
         else:
-            rol_id = 6  # Por defecto CLIENTE
+            rol_nombre = "CLIENTE"  # Por defecto
 
-        # 5. Crear relación usuario-rol
-        usuario_rol = UsuarioRol(
+        # 5. Asignar rol usando helper (maneja usuario_rol correctamente)
+        assign_role(
             usuario_id=new_user.usuario_id,
-            rol_id=rol_id,
-            empresa_id=None,  # Para clientes es NULL
-            asignado_por=None,  # Auto-asignado durante registro
-            fecha_asignado=datetime.utcnow(),
-            fecha_vencimiento=None,
-            activo=True
+            rol_nombre=rol_nombre,
+            db=db,
+            empresa_id=None  # NULL para roles globales
         )
         
-        db.add(usuario_rol)
         db.commit()
         db.refresh(new_user)
         
@@ -270,14 +282,20 @@ async def refresh_access_token(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found or inactive"
             )
-        
+        # 🛑 COPIAR LÓGICA DE ROL PRINCIPAL PARA REFRESH 🛑
+        roles = get_user_roles(user.usuario_id, db)
+        rol_principal = roles[0] if roles else user.tipo_usuario.value
+        if rol_principal not in ["SUPERADMIN", "ADMIN"]:
+            rol_principal = user.tipo_usuario.value
+
         # Crear nuevo access token
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
         access_token = create_access_token(
             data={
                 "sub": str(user.usuario_id),
                 "email": user.email,
-                "tipo_usuario": user.tipo_usuario.value
+                # 💡 Aquí también se usa el rol principal
+                "tipo_usuario": rol_principal 
             },
             expires_delta=access_token_expires
         )
@@ -375,18 +393,14 @@ async def google_callback(
             db.add(user)
             db.flush()
             
-            # Asignar rol de CLIENTE
-            usuario_rol = UsuarioRol(
+            # Asignar rol de CLIENTE usando sistema RBAC
+            assign_role(
                 usuario_id=user.usuario_id,
-                rol_id=6,  # Rol CLIENTE
-                empresa_id=None,
-                asignado_por=None,
-                fecha_asignado=datetime.utcnow(),
-                fecha_vencimiento=None,
-                activo=True
+                rol_nombre="CLIENTE",
+                db=db,
+                empresa_id=None
             )
             
-            db.add(usuario_rol)
             db.commit()
             db.refresh(user)
             
@@ -401,13 +415,16 @@ async def google_callback(
             
             logger.info(f"Login via Google OAuth: {user.email}")
         
-        # Crear tokens
+        # Crear tokens usando rol real del sistema RBAC
+        roles = get_user_roles(user.usuario_id, db)
+        rol_principal = roles[0] if roles else "CLIENTE"
+        
         access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
         access_token = create_access_token(
             data={
                 "sub": str(user.usuario_id),
                 "email": user.email,
-                "tipo_usuario": user.tipo_usuario.value
+                "tipo_usuario": rol_principal
             },
             expires_delta=access_token_expires
         )
@@ -689,7 +706,8 @@ async def logout(
 
 @router.get("/verify-token")
 async def verify_token(
-    current_user: Usuario = Depends(get_db)
+    current_user: Usuario = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     """
     Verifica si el token JWT es válido
@@ -698,13 +716,16 @@ async def verify_token(
     
     Args:
         current_user: Usuario autenticado (inyectado por dependency)
+        db: Sesión de base de datos
         
     Returns:
-        Información básica del usuario
+        Información básica del usuario con roles reales
     """
+    roles = get_user_roles(current_user.usuario_id, db)
     return {
         "valid": True,
         "usuario_id": current_user.usuario_id,
         "email": current_user.email,
-        "tipo_usuario": current_user.tipo_usuario.value
+        "roles": roles,
+        "rol_principal": roles[0] if roles else None
     }

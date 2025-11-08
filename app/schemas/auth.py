@@ -69,7 +69,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     usuario_id: Optional[int] = None
     email: Optional[str] = None
-    tipo_usuario: Optional[TipoUsuario] = None
+    tipo_usuario: Optional[str] = None  # Acepta cualquier rol del sistema RBAC
     
 # ============================================
 # GOOGLE OAUTH SCHEMAS (Flujo de autorización)

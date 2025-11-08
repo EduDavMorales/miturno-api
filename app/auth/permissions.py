@@ -49,13 +49,13 @@ class PermissionService:
     def obtener_permisos_usuario(self, usuario_id: int) -> List[Dict[str, Any]]:
         """Obtener permisos básicos de un usuario"""
         try:
-            # Query corregido: usar tablas reales en lugar de vista
+            # Query corregido: usar tablas reales y extraer acción del código
             query = text("""
                 SELECT DISTINCT
                     p.codigo as permiso_codigo,
                     p.nombre as permiso_nombre,
                     p.categoria as recurso,
-                    'READ' as accion
+                    SUBSTRING_INDEX(SUBSTRING_INDEX(p.codigo, ':', 2), ':', -1) as accion
                 FROM usuario_rol ur
                 JOIN rol r ON ur.rol_id = r.rol_id
                 JOIN rol_permiso rp ON r.rol_id = rp.rol_id
