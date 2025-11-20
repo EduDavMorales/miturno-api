@@ -1,5 +1,6 @@
 from datetime import timedelta, datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.empresa import Empresa  
@@ -345,55 +346,66 @@ async def get_google_auth_url():
             detail="Error generating Google OAuth URL"
         )
 
-
-@router.post("/google/callback", response_model=GoogleAuthResponse)
+@router.get("/google/callback")
 async def google_callback(
-    request: GoogleCallbackRequest,
+    code: str = Query(..., description="Código de autorización de Google"),
+    state: Optional[str] = Query(None, description="Estado de validación"),
     db: Session = Depends(get_db)
 ):
     """
-    Callback de Google OAuth - procesa el código de autorización
-    
-    Args:
-        request: Código y state de Google
-        db: Sesión de base de datos
-        
-    Returns:
-        GoogleAuthResponse con tokens y datos del usuario
-        
-    Raises:
-        HTTPException 400: Error en autenticación con Google
+    Callback de Google OAuth - procesa el código y devuelve HTML para guardar sesión
     """
     try:
         # Obtener información del usuario de Google
-        user_info = google_oauth_service.get_user_info(request.code)
+        user_info = google_oauth_service.get_user_info(code)
         
         if not user_info:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user info from Google"
-            )
+            return HTMLResponse(content=f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Error de autenticación</title>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5; }}
+                        .error-box {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }}
+                        h2 {{ color: #c41e3a; margin: 0 0 15px; }}
+                        button {{ background: #c41e3a; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-top: 15px; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="error-box">
+                        <h2>Error de autenticación</h2>
+                        <p>No se pudo obtener tu información de Google</p>
+                        <button onclick="window.location.href='/pages/login-usuario.html'">Volver al login</button>
+                    </div>
+                </body>
+                </html>
+            """, status_code=400)
+        
+        # Variable para trackear si es usuario nuevo
+        es_nuevo = False
         
         # Buscar o crear usuario
         user = db.query(Usuario).filter(Usuario.email == user_info['email']).first()
         
         if not user:
-            # Crear nuevo usuario desde Google OAuth
+            # USUARIO NUEVO
+            es_nuevo = True
+            
             user = Usuario(
                 email=user_info['email'],
                 nombre=user_info.get('given_name', ''),
                 apellido=user_info.get('family_name', ''),
-                google_id=user_info['id'],
+                google_id=user_info['sub'],
                 picture_url=user_info.get('picture'),
-                password=None,  # No password para OAuth
-                tipo_usuario=TipoUsuario.CLIENTE,  # Por defecto cliente
+                password=None,  # OAuth puro
+                tipo_usuario=TipoUsuario.CLIENTE,
                 telefono=None
             )
             
             db.add(user)
             db.flush()
             
-            # Asignar rol de CLIENTE usando sistema RBAC
             assign_role(
                 usuario_id=user.usuario_id,
                 rol_nombre="CLIENTE",
@@ -406,16 +418,16 @@ async def google_callback(
             
             logger.info(f"Nuevo usuario creado via Google OAuth: {user.email}")
         else:
-            # Actualizar info de Google si cambió
-            if user.google_id != user_info['id']:
-                user.google_id = user_info['id']
+            # USUARIO EXISTENTE - Actualizar Google ID si es necesario
+            if not user.google_id:
+                user.google_id = user_info['sub']
             if user.picture_url != user_info.get('picture'):
                 user.picture_url = user_info.get('picture')
             db.commit()
             
             logger.info(f"Login via Google OAuth: {user.email}")
         
-        # Crear tokens usando rol real del sistema RBAC
+        # Crear tokens
         roles = get_user_roles(user.usuario_id, db)
         rol_principal = roles[0] if roles else "CLIENTE"
         
@@ -442,12 +454,124 @@ async def google_callback(
         db.add(refresh_token_record)
         db.commit()
         
-        return GoogleAuthResponse(
-            access_token=access_token,
-            refresh_token=refresh_token_str,
-            token_type="bearer",
-            usuario=UsuarioResponse.model_validate(user)
-        )
+        # Preparar datos para el frontend
+        import json
+        user_data = {
+            "access_token": access_token,
+            "refresh_token": refresh_token_str,
+            "token_type": "bearer",
+            "usuario": {
+                "usuario_id": user.usuario_id,
+                "email": user.email,
+                "nombre": user.nombre,
+                "apellido": user.apellido,
+                "telefono": user.telefono,
+                "tipo_usuario": user.tipo_usuario.value
+            }
+        }
+        
+        # Determinar página de destino
+        home_url = "/pages/home-empresa.html" if user.tipo_usuario.value == "EMPRESA" else "/pages/home-usuario.html"
+        
+        # Devolver HTML que guarda la sesión y redirige
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Autenticación exitosa</title>
+            <style>
+                body {{ 
+                    font-family: Arial, sans-serif; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    height: 100vh; 
+                    margin: 0; 
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                }}
+                .loading-box {{ 
+                    background: white; 
+                    padding: 40px; 
+                    border-radius: 12px; 
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.2); 
+                    text-align: center; 
+                }}
+                .spinner {{ 
+                    border: 4px solid #f3f3f3; 
+                    border-top: 4px solid #c41e3a; 
+                    border-radius: 50%; 
+                    width: 40px; 
+                    height: 40px; 
+                    animation: spin 1s linear infinite; 
+                    margin: 0 auto 20px; 
+                }}
+                @keyframes spin {{ 
+                    0% {{ transform: rotate(0deg); }} 
+                    100% {{ transform: rotate(360deg); }} 
+                }}
+                h2 {{ color: #333; margin: 0 0 10px; }}
+                p {{ color: #666; margin: 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="loading-box">
+                <div class="spinner"></div>
+                <h2>¡Autenticación exitosa!</h2>
+                <p>Redirigiendo...</p>
+            </div>
+            
+            <script>
+                // Función saveSession embebida (inline para evitar dependencias externas)
+                function saveSession(data) {{
+                    if (!data || !data.access_token) {{
+                        console.error('❌ Datos de sesión inválidos');
+                        return false;
+                    }}
+                    
+                    try {{
+                        // Guardar tokens
+                        localStorage.setItem('access_token', data.access_token);
+                        
+                        if (data.refresh_token) {{
+                            localStorage.setItem('refresh_token', data.refresh_token);
+                        }}
+                        
+                        // Guardar datos del usuario
+                        if (data.usuario) {{
+                            localStorage.setItem('user_data', JSON.stringify(data.usuario));
+                            localStorage.setItem('user_type', data.usuario.tipo_usuario);
+                        }}
+                        
+                        console.log('✅ Sesión guardada correctamente');
+                        return true;
+                    }} catch (error) {{
+                        console.error('❌ Error guardando sesión:', error);
+                        return false;
+                    }}
+                }}
+                
+                // Guardar sesión de Google OAuth
+                const sessionData = {json.dumps(user_data)};
+                console.log('🔐 Guardando sesión de Google OAuth:', sessionData);
+                
+                // Detectar origen del frontend
+                const frontendOrigin = window.location.origin.includes('localhost:8000') 
+                    ? 'http://127.0.0.1:5500'  // Desarrollo (Live Server)
+                    : window.location.origin;    // Producción (Vercel)
+                
+                // Codificar datos para URL
+                const encodedData = btoa(JSON.stringify(sessionData));
+                const redirectUrl = `${{frontendOrigin}}{home_url}?session=${{encodedData}}`;
+                console.log('🔄 Redirigiendo con datos de sesión...');
+                
+                // Redireccionar inmediatamente
+                window.location.href = redirectUrl;
+            </script>
+        </body>
+        </html>
+        """
+        
+        return HTMLResponse(content=html_content)
         
     except HTTPException:
         db.rollback()
@@ -455,10 +579,28 @@ async def google_callback(
     except Exception as e:
         db.rollback()
         logger.error(f"Error en Google callback: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error processing Google authentication"
-        )
+        
+        return HTMLResponse(content=f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Error de autenticación</title>
+                <style>
+                    body {{ font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f5f5f5; }}
+                    .error-box {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; max-width: 400px; }}
+                    h2 {{ color: #c41e3a; margin: 0 0 15px; }}
+                    button {{ background: #c41e3a; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-top: 15px; }}
+                </style>
+            </head>
+            <body>
+                <div class="error-box">
+                    <h2>Error de autenticación</h2>
+                    <p>Ocurrió un error procesando tu autenticación con Google</p>
+                    <button onclick="window.location.href='/pages/login-usuario.html'">Volver al login</button>
+                </div>
+            </body>
+            </html>
+        """, status_code=500)
 
 
 # ============================================

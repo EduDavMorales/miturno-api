@@ -15,8 +15,7 @@ router = APIRouter()
 @router.get("/categorias", response_model=List[CategoriaSchema])
 def leer_categorias(
     skip: int = 0, 
-    limit: int = 100, 
-    current_user: Usuario = Depends(get_current_user),  
+    limit: int = 100,  
     db: Session = Depends(get_db)
 ):
     """Listar todas las categorías"""
@@ -32,19 +31,9 @@ def leer_categorias(
 
 @router.post("/categorias", response_model=CategoriaSchema, status_code=201)
 def crear_categoria(
-    categoria: CategoriaCreate,
-    current_user: Usuario = Depends(get_current_user),  
+    categoria: CategoriaCreate, 
     db: Session = Depends(get_db)
 ):
-    """Crear nueva categoría - Solo admins"""
-    
-    # Verificar que tiene rol de admin usando el sistema RBAC correcto
-    if not (user_has_role(current_user.usuario_id, "SUPERADMIN", db) or 
-            user_has_role(current_user.usuario_id, "ADMIN_EMPRESA", db)):
-        raise HTTPException(
-            status_code=403,
-            detail="Solo administradores pueden actualizar categorías"
-        )
     
     # Verificar si ya existe
     existe = db.query(Categoria).filter(Categoria.nombre == categoria.nombre).first()

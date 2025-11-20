@@ -69,7 +69,58 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+# ============================================
+# SECURITY HEADERS MIDDLEWARE - NUEVO
+# ============================================
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """
+    Agregar headers de seguridad a todas las respuestas
+    Protege contra ataques comunes como XSS, clickjacking, etc.
+    """
+    response = await call_next(request)
+    
+    # Prevenir MIME type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    
+    # Prevenir clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    
+    # Habilitar protección XSS del navegador
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    # Content Security Policy básica
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "img-src 'self' data: https: blob:; "
+        "font-src 'self' data: https://fonts.gstatic.com; "
+        "connect-src 'self' https://accounts.google.com https://www.googleapis.com; "
+        "frame-src 'self' https://accounts.google.com;"
+    )
+    
+    # Referrer Policy
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    # Permissions Policy (antes Feature-Policy)
+    response.headers["Permissions-Policy"] = (
+        "geolocation=(self), "
+        "microphone=(), "
+        "camera=(), "
+        "payment=(), "
+        "usb=(), "
+        "magnetometer=(), "
+        "gyroscope=(), "
+        "accelerometer=()"
+    )
+    
+    # HSTS - Solo descomentar en producción con HTTPS
+    # if not settings.debug:
+    #     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    
+    return response
+    
 # Event handlers
 @app.on_event("startup")
 async def startup_event():

@@ -62,7 +62,58 @@ class GoogleOAuthService:
             state=state
         )
         
-        return authorization_url
+        return authorization_url, state
+    
+    def get_user_info(self, code: str) -> Optional[Dict[str, Any]]:
+        """
+        Intercambia el código de autorización por información del usuario
+        
+        Args:
+            code: Código de autorización de Google
+            
+        Returns:
+            Información del usuario de Google o None si falla
+        """
+        try:
+            flow = Flow.from_client_config(
+                client_config={
+                    "web": {
+                        "client_id": self.client_id,
+                        "client_secret": self.client_secret,
+                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                        "redirect_uris": [self.redirect_uri]
+                    }
+                },
+                scopes=[
+                    'openid',
+                    'https://www.googleapis.com/auth/userinfo.email',
+                    'https://www.googleapis.com/auth/userinfo.profile'
+                ]
+            )
+            
+            flow.redirect_uri = self.redirect_uri
+            
+            # Intercambiar código por tokens
+            flow.fetch_token(code=code)
+            
+            # Obtener credenciales
+            credentials = flow.credentials
+            
+            # Verificar el ID token
+            idinfo = id_token.verify_oauth2_token(
+                credentials.id_token,
+                requests.Request(),
+                self.client_id
+            )
+            
+            logger.info(f"Usuario autenticado via Google: {idinfo.get('email')}")
+            
+            return idinfo
+            
+        except Exception as e:
+            logger.error(f"Error obteniendo información del usuario de Google: {e}")
+            return None
     
     def verify_token(self, token: str) -> Dict[str, Any]:
         """

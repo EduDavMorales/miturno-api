@@ -90,6 +90,7 @@ class GoogleCallbackRequest(BaseModel):
 class GoogleAuthResponse(BaseModel):
     """Response exitoso de Google OAuth"""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     usuario: UsuarioResponse
     es_nuevo_usuario: bool = Field(
