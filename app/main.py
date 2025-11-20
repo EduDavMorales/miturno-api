@@ -89,11 +89,11 @@ async def add_security_headers(request, call_next):
     # Habilitar protección XSS del navegador
     response.headers["X-XSS-Protection"] = "1; mode=block"
     
-    # Content Security Policy básica
+    # Content Security Policy - Incluye CDN para Swagger UI
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://apis.google.com https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; "
         "img-src 'self' data: https: blob:; "
         "font-src 'self' data: https://fonts.gstatic.com; "
         "connect-src 'self' https://accounts.google.com https://www.googleapis.com; "
