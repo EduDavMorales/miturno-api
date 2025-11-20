@@ -554,15 +554,13 @@ async def google_callback(
                 const sessionData = {json.dumps(user_data)};
                 console.log('🔐 Guardando sesión de Google OAuth:', sessionData);
                 
-                // Detectar origen del frontend
-                const frontendOrigin = window.location.origin.includes('localhost:8000') 
-                    ? 'http://127.0.0.1:5500'  // Desarrollo (Live Server)
-                    : window.location.origin;    // Producción (Vercel)
+                // ✅ CORREGIDO: Usar la URL del frontend desde settings
+                const frontendOrigin = '{settings.frontend_url}';
                 
                 // Codificar datos para URL
                 const encodedData = btoa(JSON.stringify(sessionData));
                 const redirectUrl = `${{frontendOrigin}}{home_url}?session=${{encodedData}}`;
-                console.log('🔄 Redirigiendo con datos de sesión...');
+                console.log('🔄 Redirigiendo a:', redirectUrl);
                 
                 // Redireccionar inmediatamente
                 window.location.href = redirectUrl;
