@@ -8,16 +8,20 @@ from fastapi_limiter import FastAPILimiter
 
 from app.config import settings
 from app.core.logger import setup_logging, get_logger
-from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones, servicios, horarios
+from app.api.v1 import auth, empresas, categorias, turnos, test_roles, geolocalizacion, conversaciones, calificaciones, servicios, horarios, usuarios
 from app.routers import auditoria, geo_test
 from app.database import engine
 from app.models import user  
 
-# Configurar logging al inicio de la aplicación
+# ============================================
+# 1. CONFIGURAR LOGGING AL INICIO
+# ============================================
 logger = setup_logging()
 app_logger = get_logger("miturno.app")
 
-# Crear las tablas en la base de datos
+# ============================================
+# 2. CREAR TABLAS EN BASE DE DATOS
+# ============================================
 try:
     user.Base.metadata.create_all(bind=engine)
     app_logger.info("Base de datos inicializada correctamente")
@@ -25,7 +29,9 @@ except Exception as e:
     app_logger.error(f"Error inicializando base de datos: {str(e)}")
     raise
 
-# Crear instancia de FastAPI
+# ============================================
+# 3. CREAR INSTANCIA DE FASTAPI
+# ============================================
 app = FastAPI(
     title=settings.app_name,
     description="API para la gestión de turnos entre empresas y clientes",
@@ -33,12 +39,19 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# Configurar esquema de seguridad JWT para Swagger UI
+# ============================================
+# 4. AGREGAR MIDDLEWARE DE ERROR LOGGING
+# ============================================
+from app.middleware.error_logger_middleware import ErrorLoggerMiddleware
+app.add_middleware(ErrorLoggerMiddleware)
+
+# ============================================
+# 5. CONFIGURAR ESQUEMA DE SEGURIDAD JWT
+# ============================================
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     
-    # Usar get_openapi en lugar de app.openapi() para evitar recursión
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
@@ -61,7 +74,9 @@ def custom_openapi():
 
 app.openapi = custom_openapi
 
-# Configurar CORS
+# ============================================
+# 6. CONFIGURAR CORS
+# ============================================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.backend_cors_origins,
@@ -69,8 +84,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # ============================================
-# SECURITY HEADERS MIDDLEWARE - NUEVO
+# 7. SECURITY HEADERS MIDDLEWARE
 # ============================================
 @app.middleware("http")
 async def add_security_headers(request, call_next):
@@ -120,8 +136,10 @@ async def add_security_headers(request, call_next):
     #     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     
     return response
-    
-# Event handlers
+
+# ============================================
+# 8. EVENT HANDLERS
+# ============================================
 @app.on_event("startup")
 async def startup_event():
     """Evento de inicio de la aplicación"""
@@ -158,23 +176,28 @@ async def shutdown_event():
     except Exception as e:
         app_logger.error(f"Error cerrando FastAPILimiter: {str(e)}")
 
-# Incluir routers
+# ============================================
+# 9. INCLUIR ROUTERS
+# ============================================
 app.include_router(auth.router, prefix="/api/auth", tags=["🔐 Autenticación"])
+app.include_router(usuarios.router, prefix="/api/v1/usuarios", tags=["👤 Usuarios"])
 app.include_router(empresas.router, prefix="/api/v1", tags=["🏢 Empresas"])
 app.include_router(horarios.router, prefix="/api/v1", tags=["📅 Horarios y Bloqueos"])
-app.include_router(servicios.router, prefix="/api/v1")
+app.include_router(servicios.router, prefix="/api/v1", tags=["💇 Servicios"])
 app.include_router(categorias.router, prefix="/api/v1", tags=["📂 Categorías"])
 app.include_router(turnos.router, prefix="/api/v1", tags=["📅 Turnos"])
 app.include_router(test_roles.router, prefix="/api/v1/test", tags=["⚙️ Test Roles"])
-app.include_router(auditoria.router)
-app.include_router(geo_test.router)
+app.include_router(auditoria.router, prefix="/api/v1/auditoria", tags=["📋 Auditoría"])
+app.include_router(geo_test.router, prefix="/api/v1/geo-test", tags=["🧪 Geo Testing"])
 app.include_router(geolocalizacion.router, prefix="/api/v1", tags=["🗺️ Geolocalización"])
-app.include_router(conversaciones.router, prefix="/api/v1")
-app.include_router(calificaciones.router, prefix="/api/v1")
+app.include_router(conversaciones.router, prefix="/api/v1", tags=["💬 Conversaciones"])
+app.include_router(calificaciones.router, prefix="/api/v1", tags=["⭐ Calificaciones"])
 
 app_logger.info("Todos los routers registrados correctamente")
 
-# Health check endpoints
+# ============================================
+# 10. HEALTH CHECK ENDPOINTS
+# ============================================
 @app.get("/")
 async def root():
     """Endpoint raíz de la API"""

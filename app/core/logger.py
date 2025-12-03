@@ -27,7 +27,7 @@ def setup_logging():
     console_handler.setFormatter(formatter)
     console_handler.setLevel(logging.INFO)
     
-    # Handler para archivo con rotación
+    # Handler para archivo general con rotación
     file_handler = RotatingFileHandler(
         log_dir / "miturno.log",
         maxBytes=10*1024*1024,  # 10MB
@@ -35,6 +35,15 @@ def setup_logging():
     )
     file_handler.setFormatter(formatter)
     file_handler.setLevel(logging.DEBUG)
+    
+    # ⭐ NUEVO: Handler específico para ERRORES
+    error_handler = RotatingFileHandler(
+        log_dir / "errors.log",
+        maxBytes=10*1024*1024,  # 10MB
+        backupCount=5
+    )
+    error_handler.setFormatter(formatter)
+    error_handler.setLevel(logging.ERROR)  # Solo ERROR y CRITICAL
     
     # Handler específico para autenticación
     auth_handler = RotatingFileHandler(
@@ -44,9 +53,10 @@ def setup_logging():
     )
     auth_handler.setFormatter(formatter)
     
-    # Agregar handlers
+    # Agregar handlers al logger principal
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
+    logger.addHandler(error_handler)  # ⭐ NUEVO
     
     # Logger específico para auth
     auth_logger = logging.getLogger("miturno.auth")

@@ -18,9 +18,15 @@ services:
       - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
       - OAUTHLIB_INSECURE_TRANSPORT=${OAUTHLIB_INSECURE_TRANSPORT}
       - REDIS_URL=redis://redis:6379
-      - BREVO_API_KEY=${BREVO_API_KEY}
+      # ✅ Email configuration (SMTP - Gmail)
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
       - EMAIL_FROM=${EMAIL_FROM}
       - FRONTEND_URL=${FRONTEND_URL}
+      # ⚠️ Deprecated (mantener por compatibilidad)
+      - BREVO_API_KEY=${BREVO_API_KEY}
 
   database:
     image: mysql:8

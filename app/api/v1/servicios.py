@@ -10,7 +10,7 @@ from app.schemas.servicio import ServicioCreate, ServicioUpdate, ServicioRespons
 from app.api.deps import get_current_user
 from app.auth.permissions import PermissionService
 
-router = APIRouter(prefix="/servicios", tags=["Servicios"])
+router = APIRouter()
 
 
 # ==================== ENDPOINTS ====================

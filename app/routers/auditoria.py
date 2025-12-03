@@ -11,7 +11,7 @@ from app.schemas.auditoria import *
 from app.middleware.auditoria_middleware import AuditoriaMiddleware
 from app.core.exceptions import ValidationError, DatabaseError, NotFoundError
 
-router = APIRouter(prefix="/api/v1/auditoria", tags=["📋 Auditoría del Sistema"])
+router = APIRouter()
 
 @router.get("/", 
     response_model=Dict[str, Any],

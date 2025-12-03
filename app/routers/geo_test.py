@@ -12,7 +12,7 @@ from app.schemas.geo import (
 )
 from typing import Optional
 
-router = APIRouter(prefix="/api/v1/geo-test", tags=["Geo Testing"])
+router = APIRouter()
 
 @router.post("/geocode", response_model=DireccionGeocodeResponse)
 async def test_geocode_direccion(direccion: DireccionGeocode):

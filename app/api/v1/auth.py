@@ -677,19 +677,19 @@ async def forgot_password(
                     nombre=usuario.nombre
                 )
                 
-                # ✅ CORREGIDO: Verificar resultado según modo
-                if settings.brevo_enabled:
-                    # MODO PRODUCCIÓN: Email debe enviarse exitosamente
+                # ✅ CORREGIDO: Verificar resultado según modo (SMTP en lugar de Brevo)
+                if settings.smtp_enabled:
+                    # MODO PRODUCCIÓN: Email debe enviarse exitosamente via SMTP
                     if not email_enviado:
-                        logger.error(f"Error enviando email a: {usuario.email}")
+                        logger.error(f"Error enviando email via SMTP a: {usuario.email}")
                         raise HTTPException(
                             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Error enviando email de recuperación. Intenta nuevamente."
                         )
-                    logger.info(f"✅ Email enviado exitosamente a: {usuario.email}")
+                    logger.info(f"✅ Email enviado exitosamente via SMTP a: {usuario.email}")
                 else:
-                    # MODO DESARROLLO: Email logueado en consola
-                    logger.info(f"✅ Email logueado en consola (modo desarrollo) para: {usuario.email}")
+                    # MODO DESARROLLO: Email logueado en consola (SMTP no configurado)
+                    logger.info(f"✅ Email logueado en consola (modo desarrollo - SMTP no configurado) para: {usuario.email}")
                 
             except HTTPException:
                 # Re-lanzar HTTPException sin modificar
@@ -697,19 +697,16 @@ async def forgot_password(
             except Exception as email_error:
                 logger.error(f"Excepción enviando email a {usuario.email}: {email_error}")
                 
-                # En producción, esto es un error crítico
-                if settings.brevo_enabled:
+                # En producción (SMTP habilitado), esto es un error crítico
+                if settings.smtp_enabled:
                     raise HTTPException(
                         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                         detail="Error enviando email de recuperación. Intenta nuevamente."
                     )
-                # En desarrollo, continuar (el token está logueado)
+                # En desarrollo (SMTP no configurado), continuar (el token está logueado)
                 logger.warning("⚠️ Error en desarrollo - continuando (token logueado en consola)")
-                    
-        else:
-            logger.info(f"Email no encontrado o usuario inactivo: {request.email}")
-        
-        # Siempre retornar el mismo mensaje (por seguridad)
+
+        # Siempre retornar el mismo mensaje (seguridad)
         return ForgotPasswordResponse(
             message=response_message,
             email=request.email
@@ -720,14 +717,13 @@ async def forgot_password(
         db.rollback()
         raise
     except Exception as e:
+        # Error inesperado
         db.rollback()
-        logger.error(f"Error general en forgot_password: {e}")
-        # Por seguridad, NO revelar detalles del error
+        logger.error(f"Error inesperado en forgot_password: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error procesando solicitud. Intenta nuevamente."
+            detail="Error procesando solicitud de recuperación"
         )
-
 
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(

@@ -18,7 +18,7 @@ from app.models.empresa import Empresa
 from app.api.deps import get_current_user
 from app.enums import TipoUsuario
 
-router = APIRouter(prefix="/conversaciones", tags=["💬 Conversaciones"])
+router = APIRouter(prefix="/conversaciones")
 
 
 @router.post("", response_model=ConversacionResponse, status_code=status.HTTP_201_CREATED)

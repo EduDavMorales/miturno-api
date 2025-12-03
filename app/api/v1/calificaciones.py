@@ -20,7 +20,7 @@ from app.schemas.calificacion import (
 from app.enums import EstadoTurno, TipoUsuario
 from app.api.deps import get_current_user
 
-router = APIRouter(prefix="/calificaciones", tags=["Calificaciones"])
+router = APIRouter()
 
 
 # ==================== HELPER FUNCTIONS ====================
