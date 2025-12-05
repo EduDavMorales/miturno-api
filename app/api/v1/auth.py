@@ -11,7 +11,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.password_reset_token import PasswordResetToken
 from app.schemas.auth import (
     LoginRequest, LoginResponse, RegistroRequest, RegistroResponse,
-    GoogleAuthRequest, UsuarioResponse,
+    GoogleAuthRequest, GoogleTokenRequest, UsuarioResponse,
     RefreshTokenRequest, RefreshTokenResponse, LoginResponseWithRefresh,
     GoogleAuthURL, GoogleCallbackRequest, GoogleAuthResponse,
     ForgotPasswordRequest, ForgotPasswordResponse,  
@@ -603,7 +603,7 @@ async def google_callback(
 
 @router.post("/google/token", response_model=LoginResponseWithRefresh)
 async def google_token_login(
-    request: GoogleAuthRequest,
+    request: GoogleTokenRequest,
     db: Session = Depends(get_db)
 ):
     """

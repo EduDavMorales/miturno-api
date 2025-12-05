@@ -31,6 +31,26 @@ class GoogleAuthRequest(BaseModel):
             raise ValueError('tipo_usuario debe ser "cliente" o "empresa"')
         return v
 
+
+# Google OAuth Token (para PWA)
+class GoogleTokenRequest(BaseModel):
+    """Request para autenticación con Google usando id_token directo (PWA)
+    
+    Este schema es para el flujo moderno de @react-oauth/google donde el
+    frontend obtiene el id_token directamente y lo envía al backend.
+    
+    Solo para clientes - las empresas usan login tradicional.
+    """
+    id_token: str = Field(..., description="ID token JWT de Google")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFmODNkZjM5..."
+            }
+        }
+
+
 # Registro
 class RegistroRequest(BaseModel):
     email: str
