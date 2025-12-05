@@ -117,7 +117,7 @@ class GoogleOAuthService:
     
     def verify_token(self, token: str) -> Dict[str, Any]:
         """
-        Verifica un ID token de Google
+        Verifica un ID token de Google (con HTTPException)
         
         Args:
             token: ID token de Google
@@ -146,6 +146,63 @@ class GoogleOAuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token de Google inválido"
             )
+    
+    def verify_id_token(self, id_token_str: str) -> Optional[Dict[str, Any]]:
+        """
+        Verifica y decodifica un id_token de Google (versión sin HTTPException)
+        
+        Este método valida un id_token recibido del frontend (ej: @react-oauth/google)
+        y retorna la información del usuario si es válido.
+        
+        Usado por el endpoint POST /auth/google/token para PWAs.
+        
+        Args:
+            id_token_str: Token JWT de Google
+            
+        Returns:
+            dict con información del usuario si es válido:
+                - sub: Google ID único del usuario
+                - email: Email del usuario
+                - email_verified: Si el email está verificado
+                - given_name: Nombre
+                - family_name: Apellido
+                - name: Nombre completo
+                - picture: URL de la foto de perfil
+            None si el token es inválido o expirado
+        """
+        try:
+            # Validar el token con Google
+            idinfo = id_token.verify_oauth2_token(
+                id_token=id_token_str,
+                request=requests.Request(),
+                audience=self.client_id
+            )
+            
+            # Verificar que el token sea de Google
+            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                logger.warning(f"Token no es de Google: {idinfo.get('iss')}")
+                return None
+            
+            logger.info(f"ID token validado para: {idinfo.get('email')}")
+            
+            # Retornar información del usuario
+            return {
+                'sub': idinfo['sub'],  # Google ID único
+                'email': idinfo['email'],
+                'email_verified': idinfo.get('email_verified', False),
+                'given_name': idinfo.get('given_name', ''),
+                'family_name': idinfo.get('family_name', ''),
+                'name': idinfo.get('name', ''),
+                'picture': idinfo.get('picture', '')
+            }
+            
+        except ValueError as e:
+            # Token inválido o expirado
+            logger.error(f"Token de Google inválido: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error verificando id_token: {e}")
+            return None
     
     def validate_and_create_user(
         self, 

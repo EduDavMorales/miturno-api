@@ -601,6 +601,144 @@ async def google_callback(
         """, status_code=500)
 
 
+@router.post("/google/token", response_model=LoginResponseWithRefresh)
+async def google_token_login(
+    request: GoogleAuthRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Autenticación con Google usando id_token (para frontend moderno con @react-oauth/google)
+    
+    Este endpoint valida un id_token de Google y retorna tokens de acceso de MiTurno.
+    Es el método recomendado para PWAs y aplicaciones SPA que usan @react-oauth/google.
+    
+    Args:
+        request: GoogleAuthRequest con el id_token de Google
+        db: Sesión de base de datos
+        
+    Returns:
+        LoginResponseWithRefresh con tokens y datos del usuario
+        
+    Raises:
+        HTTPException 401: Token de Google inválido
+        HTTPException 500: Error procesando autenticación
+    """
+    try:
+        # Validar el id_token con Google
+        user_info = google_oauth_service.verify_id_token(request.id_token)
+        
+        if not user_info:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Google token"
+            )
+        
+        logger.info(f"Token de Google validado para: {user_info.get('email')}")
+        
+        # Buscar o crear usuario
+        user = db.query(Usuario).filter(Usuario.email == user_info['email']).first()
+        
+        if not user:
+            # USUARIO NUEVO - Crear con datos de Google
+            user = Usuario(
+                email=user_info['email'],
+                nombre=user_info.get('given_name', ''),
+                apellido=user_info.get('family_name', ''),
+                google_id=user_info['sub'],
+                picture_url=user_info.get('picture'),
+                password=None,  # OAuth puro - sin password
+                tipo_usuario=TipoUsuario.CLIENTE,
+                telefono=None,
+                activo=True
+            )
+            
+            db.add(user)
+            db.flush()  # Obtener ID del usuario
+            
+            # Asignar rol CLIENTE automáticamente
+            assign_role(
+                usuario_id=user.usuario_id,
+                rol_nombre="CLIENTE",
+                db=db,
+                empresa_id=None
+            )
+            
+            db.commit()
+            db.refresh(user)
+            
+            logger.info(f"Nuevo usuario creado via Google OAuth (token): {user.email}")
+            
+        else:
+            # USUARIO EXISTENTE - Actualizar datos de Google si es necesario
+            actualizado = False
+            
+            if not user.google_id:
+                user.google_id = user_info['sub']
+                actualizado = True
+            
+            if user.picture_url != user_info.get('picture'):
+                user.picture_url = user_info.get('picture')
+                actualizado = True
+            
+            if actualizado:
+                db.commit()
+            
+            logger.info(f"Login via Google OAuth (token): {user.email}")
+        
+        # Obtener roles del usuario
+        roles = get_user_roles(user.usuario_id, db)
+        rol_principal = roles[0] if roles else user.tipo_usuario.value
+        
+        # Si no es un rol de sistema, usar tipo_usuario
+        if rol_principal not in ["SUPERADMIN", "ADMIN", "ADMIN_EMPRESA"]:
+            rol_principal = user.tipo_usuario.value
+        
+        # Crear access token
+        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+        access_token = create_access_token(
+            data={
+                "sub": str(user.usuario_id),
+                "email": user.email,
+                "tipo_usuario": rol_principal
+            },
+            expires_delta=access_token_expires
+        )
+        
+        # Crear refresh token
+        refresh_token_str = create_refresh_token()
+        refresh_token_expires = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        
+        refresh_token_record = RefreshToken(
+            usuario_id=user.usuario_id,
+            token=refresh_token_str,
+            expira_en=refresh_token_expires,
+            revocado=False
+        )
+        
+        db.add(refresh_token_record)
+        db.commit()
+        
+        logger.info(f"Tokens generados exitosamente para: {user.email}")
+        
+        return LoginResponseWithRefresh(
+            message="Login successful",
+            access_token=access_token,
+            refresh_token=refresh_token_str,
+            token_type="bearer",
+            usuario=UsuarioResponse.model_validate(user)
+        )
+        
+    except HTTPException:
+        # Re-lanzar HTTPException sin modificar
+        raise
+    except Exception as e:
+        logger.error(f"Error en google_token_login: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing Google authentication: {str(e)}"
+        )
+
+
 # ============================================
 # PASSWORD RESET ENDPOINTS
 # ============================================
